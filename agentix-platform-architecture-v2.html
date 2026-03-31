@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agentix — Serverless Agentic Platform Architecture v2.0</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161a24;
+    --surface2: #1e2330;
+    --border: #2a3045;
+    --accent: #4f8ef7;
+    --accent2: #7c3aed;
+    --accent3: #06b6d4;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --tag-bg: #1e2d45;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.6; }
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; height: 56px; }
+  .logo { font-size: 1.25rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -.5px; }
+  .nav-links { display: flex; gap: 1.5rem; font-size: 0.82rem; color: var(--muted); }
+  .nav-links a { color: var(--muted); text-decoration: none; transition: color .2s; cursor: pointer; }
+  .nav-links a:hover { color: var(--text); }
+  .badge { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .hero { text-align: center; padding: 4rem 2rem 3rem; background: radial-gradient(ellipse at top, #1a1f35 0%, var(--bg) 70%); border-bottom: 1px solid var(--border); }
+  .hero h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.1; margin-bottom: 1rem; }
+  .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { font-size: 1.05rem; color: var(--muted); max-width: 680px; margin: 0 auto 2rem; }
+  .hero-tags { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
+  .tag { background: var(--tag-bg); border: 1px solid var(--border); color: var(--muted); font-size: 0.75rem; padding: 4px 10px; border-radius: 20px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+  .section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
+  .section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .4rem; }
+  .section-title span { color: var(--accent); }
+  .section-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  @media(max-width:900px){ .grid-2,.grid-3,.grid-4 { grid-template-columns:1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.4rem; transition: border-color .2s; }
+  .card:hover { border-color: var(--accent); }
+  .card-title { font-size: 0.95rem; font-weight: 600; margin-bottom: .5rem; display: flex; align-items: center; gap: .5rem; }
+  .card-body { font-size: 0.83rem; color: var(--muted); line-height: 1.7; }
+  .card-body ul { padding-left: 1rem; margin-top: .4rem; }
+  .card-body li { margin-bottom: .2rem; }
+  .icon { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .blue { background: #1e3a5f; color: var(--accent); }
+  .purple { background: #2e1a4a; color: #a78bfa; }
+  .teal { background: #0e3341; color: var(--accent3); }
+  .green { background: #0d2e20; color: var(--accent4); }
+  .amber { background: #2d2000; color: var(--accent5); }
+  .red { background: #2d0e0e; color: var(--danger); }
+  .arch-diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; margin-bottom: 2rem; overflow-x: auto; }
+  .arch-row { display: flex; gap: 1rem; margin-bottom: 1rem; align-items: stretch; }
+  .arch-row:last-child { margin-bottom: 0; }
+  .arch-layer { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; min-width: 0; }
+  .arch-layer-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: .7rem; font-weight: 600; }
+  .arch-boxes { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .arch-box { font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; border: 1px solid; white-space: nowrap; font-weight: 500; }
+  .arch-box.blue { background: #0e2440; border-color: #1e4a8a; color: #7eb3ff; }
+  .arch-box.purple { background: #1e0e3a; border-color: #5b21b6; color: #c4b5fd; }
+  .arch-box.teal { background: #042028; border-color: #0e7490; color: #67e8f9; }
+  .arch-box.green { background: #041e12; border-color: #047857; color: #6ee7b7; }
+  .arch-box.amber { background: #1a1000; border-color: #b45309; color: #fcd34d; }
+  .arch-box.red { background: #1a0505; border-color: #b91c1c; color: #fca5a5; }
+  .arch-box.grey { background: #1a1e28; border-color: #3a4055; color: #94a3b8; }
+  .arch-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1.2rem; flex-shrink: 0; width: 20px; }
+  .lifecycle { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: .5rem 0; }
+  .lc-step { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: .8rem 1rem; text-align: center; min-width: 120px; flex-shrink: 0; }
+  .lc-step .lc-num { font-size: 0.65rem; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: .2rem; }
+  .lc-step .lc-label { font-size: 0.82rem; font-weight: 600; margin-bottom: .2rem; }
+  .lc-step .lc-desc { font-size: 0.7rem; color: var(--muted); }
+  .lc-arrow { color: var(--muted); font-size: 1.2rem; padding: 0 .5rem; flex-shrink: 0; }
+  .lc-step.active { border-color: var(--accent); background: #0e1e3a; }
+  .lc-step.down { border-color: var(--accent2); background: #180e2e; }
+  .code-block { background: #0a0c10; border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.4rem; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.8; overflow-x: auto; margin: 1rem 0; }
+  .code-block .kw { color: #c792ea; }
+  .code-block .str { color: #c3e88d; }
+  .code-block .num { color: #f78c6c; }
+  .code-block .cmt { color: #546e7a; }
+  .code-block .key { color: #82aaff; }
+  .code-block .val { color: #f07178; }
+  .code-block .bool { color: #ff9cac; }
+  .rbac-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .rbac-table th { background: var(--surface2); padding: .6rem 1rem; text-align: left; color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+  .rbac-table td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .rbac-table tr:last-child td { border-bottom: none; }
+  .rbac-table tr:hover td { background: var(--surface2); }
+  .perm { display: inline-block; font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; margin: 1px; font-weight: 500; }
+  .perm.allow { background: #0d2e20; color: var(--accent4); border: 1px solid #047857; }
+  .perm.deny { background: #2d0e0e; color: var(--danger); border: 1px solid #b91c1c; }
+  .perm.cond { background: #2d2000; color: var(--accent5); border: 1px solid #b45309; }
+  .channel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .8rem; }
+  .channel-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: .8rem 1rem; display: flex; align-items: center; gap: .7rem; }
+  .channel-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .channel-name { font-size: 0.82rem; font-weight: 600; }
+  .channel-type { font-size: 0.7rem; color: var(--muted); }
+  .sched-example { background: var(--surface2); border-left: 3px solid var(--accent5); border-radius: 0 8px 8px 0; padding: .7rem 1rem; margin: .4rem 0; font-size: 0.82rem; }
+  .sched-example .cron { font-family: monospace; color: var(--accent5); font-size: 0.85rem; }
+  .sched-example .label { color: var(--muted); font-size: 0.75rem; margin-top: .1rem; }
+  .security-layer { border-left: 2px solid var(--border); padding: .6rem 0 .6rem 1.2rem; margin-bottom: .5rem; position: relative; }
+  .security-layer::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); position: absolute; left: -5px; top: .85rem; }
+  .security-layer.l2::before { background: var(--accent2); }
+  .security-layer.l3::before { background: var(--accent3); }
+  .security-layer.l4::before { background: var(--accent4); }
+  .security-layer.l5::before { background: var(--accent5); }
+  .security-layer.l6::before { background: var(--danger); }
+  .sec-title { font-size: 0.88rem; font-weight: 600; }
+  .sec-desc { font-size: 0.78rem; color: var(--muted); margin-top: .2rem; }
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .cmp-table th { background: var(--surface2); padding: .6rem 1rem; font-weight: 600; border-bottom: 1px solid var(--border); }
+  .cmp-table th:first-child { text-align: left; }
+  .cmp-table th:not(:first-child) { text-align: center; }
+  .cmp-table td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+  .cmp-table td:first-child { color: var(--muted); font-weight: 500; }
+  .cmp-table td:not(:first-child) { text-align: center; }
+  .cmp-table tr:hover td { background: var(--surface2); }
+  .cmp-table th.highlight { background: linear-gradient(135deg, #0e2440, #1e0e3a); color: var(--accent); border-bottom: 2px solid var(--accent); }
+  .cmp-table td.highlight { background: #0a1225; }
+  .tick { color: var(--accent4); }
+  .cross { color: var(--danger); }
+  .partial { color: var(--accent5); }
+  footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.78rem; border-top: 1px solid var(--border); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .pill { display: inline-flex; align-items: center; gap: .3rem; font-size: 0.72rem; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+  .pill.blue { background: #0e2440; color: #7eb3ff; border: 1px solid #1e4a8a; }
+  .pill.green { background: #041e12; color: #6ee7b7; border: 1px solid #047857; }
+  .pill.amber { background: #1a1000; color: #fcd34d; border: 1px solid #b45309; }
+  .pill.purple { background: #1e0e3a; color: #c4b5fd; border: 1px solid #5b21b6; }
+  .pill.teal { background: #042028; color: #67e8f9; border: 1px solid #0e7490; }
+  .pill.red { background: #1a0505; color: #fca5a5; border: 1px solid #b91c1c; }
+  h3 { font-size: 1rem; margin-bottom: .8rem; }
+  p { font-size: 0.88rem; color: var(--muted); margin-bottom: .8rem; }
+  /* Cost table */
+  .cost-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .cost-table th { background: var(--surface2); padding: .6rem 1rem; text-align: left; color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
+  .cost-table td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+  .cost-table tr:hover td { background: var(--surface2); }
+  .cost-table .free { color: var(--accent4); font-weight: 600; }
+  .cost-table .paid { color: var(--accent5); }
+  .cost-table .expensive { color: var(--danger); }
+  /* Tier badges */
+  .tier-badge { display: inline-flex; align-items: center; gap: .3rem; font-size: 0.7rem; padding: 3px 10px; border-radius: 6px; font-weight: 600; }
+  .tier-badge.minimal { background: #0d2e20; color: var(--accent4); border: 1px solid #047857; }
+  .tier-badge.moderate { background: #2d2000; color: var(--accent5); border: 1px solid #b45309; }
+  .tier-badge.full { background: #1e0e3a; color: #c4b5fd; border: 1px solid #5b21b6; }
+</style>
+</head>
+<body>
+<nav>
+  <div class="logo">Agentix</div>
+  <div class="nav-links">
+    <a onclick="scrollTo('architecture')">Architecture</a>
+    <a onclick="scrollTo('lifecycle')">Lifecycle</a>
+    <a onclick="scrollTo('skills')">Skills</a>
+    <a onclick="scrollTo('channels')">Channels</a>
+    <a onclick="scrollTo('security')">Security</a>
+    <a onclick="scrollTo('scheduler')">Scheduler</a>
+    <a onclick="scrollTo('orchestration')">Orchestration</a>
+    <a onclick="scrollTo('comparison')">Comparison</a>
+    <a onclick="scrollTo('infra-cost')">Infra & Cost</a>
+  </div>
+  <span class="badge">Design Doc v2.0</span>
+</nav>
+
+<div class="hero">
+  <h1>Serverless Agentic Platform<br/><span>Zero-Idle · Event-Driven · Secure by Default</span></h1>
+  <p>A generic, production-grade agentic infrastructure where agents sleep until triggered, execute with full power, and shut down automatically — with RBAC, skills, multi-channel routing, and intelligent scheduling built in.</p>
+  <div class="hero-tags">
+    <span class="tag">Serverless Runtime</span>
+    <span class="tag">Zero-Idle Watchdog</span>
+    <span class="tag">RBAC First-Class</span>
+    <span class="tag">Skills Engine</span>
+    <span class="tag">Multi-Channel Triggers</span>
+    <span class="tag">Cron + Event Scheduler</span>
+    <span class="tag">Multi-Agent Orchestration</span>
+    <span class="tag">Tool Registry</span>
+    <span class="tag">Vector Memory</span>
+    <span class="tag">Secrets Vault</span>
+    <span class="tag">Distributed Tracing</span>
+    <span class="tag">Tiered Infrastructure</span>
+  </div>
+</div>
+
+<!-- ===================== ARCHITECTURE ===================== -->
+<div class="container">
+<div class="section" id="architecture">
+  <div class="section-title">System <span>Architecture</span></div>
+  <div class="section-sub">Layered view of all platform components from ingress to agent execution — now with Skills Engine</div>
+  <div class="arch-diagram">
+    <div class="arch-row">
+      <div class="arch-layer">
+        <div class="arch-layer-title">Ingress Channels (Triggers)</div>
+        <div class="arch-boxes">
+          <span class="arch-box blue">HTTP Webhook</span>
+          <span class="arch-box blue">WebSocket</span>
+          <span class="arch-box teal">Slack / Teams / Discord</span>
+          <span class="arch-box teal">Email (IMAP/SMTP)</span>
+          <span class="arch-box green">Message Queue (SQS/RabbitMQ/Kafka)</span>
+          <span class="arch-box amber">Cron Scheduler</span>
+          <span class="arch-box amber">Event Scheduler</span>
+          <span class="arch-box purple">gRPC</span>
+          <span class="arch-box grey">File Watcher</span>
+          <span class="arch-box grey">DB Change Stream</span>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrow" style="justify-content:center;width:100%;margin:-.2rem 0">▼</div>
+    <div class="arch-row">
+      <div class="arch-layer" style="border-color:#4f8ef7">
+        <div class="arch-layer-title">Zero-Idle Watchdog (Always-On, ~5MB)</div>
+        <div class="arch-boxes">
+          <span class="arch-box blue">Channel Listener</span>
+          <span class="arch-box blue">Trigger Normalizer</span>
+          <span class="arch-box blue">Auth Pre-check</span>
+          <span class="arch-box blue">Rate Limiter</span>
+          <span class="arch-box blue">Agent Spawner</span>
+          <span class="arch-box blue">Health Monitor</span>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrow" style="justify-content:center;width:100%;margin:-.2rem 0">▼</div>
+    <div class="arch-row">
+      <div class="arch-layer" style="border-color:#7c3aed">
+        <div class="arch-layer-title">Security & RBAC Gateway</div>
+        <div class="arch-boxes">
+          <span class="arch-box purple">Identity Provider (OAuth2/SAML)</span>
+          <span class="arch-box purple">JWT Validation</span>
+          <span class="arch-box purple">RBAC Engine</span>
+          <span class="arch-box purple">Policy Enforcer (OPA)</span>
+          <span class="arch-box purple">Secrets Vault</span>
+          <span class="arch-box purple">Audit Logger</span>
+          <span class="arch-box purple">API Key Manager</span>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrow" style="justify-content:center;width:100%;margin:-.2rem 0">▼</div>
+    <div class="arch-row">
+      <div class="arch-layer" style="border-color:#06b6d4">
+        <div class="arch-layer-title">Agent Runtime (Ephemeral Containers / Processes)</div>
+        <div class="arch-boxes">
+          <span class="arch-box teal">Agent Loader</span>
+          <span class="arch-box teal">Context Builder</span>
+          <span class="arch-box teal">LLM Client (multi-model)</span>
+          <span class="arch-box teal">Skill Engine</span>
+          <span class="arch-box teal">Tool Executor</span>
+          <span class="arch-box teal">Sub-Agent Spawner</span>
+          <span class="arch-box teal">Output Handler</span>
+          <span class="arch-box teal">Graceful Shutdown</span>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrow" style="justify-content:center;width:100%;margin:-.2rem 0">▼</div>
+    <div class="arch-row">
+      <div class="arch-layer" style="border-color:#10b981">
+        <div class="arch-layer-title">Skills & Tool Layer</div>
+        <div class="arch-boxes">
+          <span class="arch-box green">Skill Registry (SkillHub)</span>
+          <span class="arch-box green">Built-in Skills</span>
+          <span class="arch-box green">Community Skills</span>
+          <span class="arch-box green">Custom Enterprise Skills</span>
+          <span class="arch-box amber">Tool Registry</span>
+          <span class="arch-box amber">MCP Connectors</span>
+          <span class="arch-box amber">Agent-as-Tool</span>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrow" style="justify-content:center;width:100%;margin:-.2rem 0">▼</div>
+    <div class="arch-row">
+      <div class="arch-layer">
+        <div class="arch-layer-title">Platform Services (Persistent — Tiered)</div>
+        <div class="arch-boxes">
+          <span class="arch-box green">Agent Registry</span>
+          <span class="arch-box green">Scheduler Engine</span>
+          <span class="arch-box green">State Store (SQLite / Redis)</span>
+          <span class="arch-box green">Vector Memory (SQLite-vec / pgvector)</span>
+          <span class="arch-box green">Long-term Store (SQLite / PostgreSQL)</span>
+          <span class="arch-box green">Event Bus</span>
+          <span class="arch-box amber">Cost Ledger</span>
+          <span class="arch-box amber">Quota Manager</span>
+        </div>
+      </div>
+    </div>
+    <div class="arch-arrow" style="justify-content:center;width:100%;margin:-.2rem 0">▼</div>
+    <div class="arch-row">
+      <div class="arch-layer">
+        <div class="arch-layer-title">Observability & Management Plane</div>
+        <div class="arch-boxes">
+          <span class="arch-box grey">OpenTelemetry Collector</span>
+          <span class="arch-box grey">Distributed Tracing (Jaeger)</span>
+          <span class="arch-box grey">Metrics (Prometheus)</span>
+          <span class="arch-box grey">Logging (Loki)</span>
+          <span class="arch-box grey">Dashboard (Grafana)</span>
+          <span class="arch-box grey">Admin UI</span>
+          <span class="arch-box grey">Alert Manager</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid-4">
+    <div class="card">
+      <div class="card-title"><span class="icon blue">&#9889;</span> Zero-Idle by Design</div>
+      <div class="card-body">Only the watchdog (~5 MB) runs continuously. All agent processes are cold-started on demand and terminated post-execution. No compute cost at rest.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon purple">&#128274;</span> Secure by Default</div>
+      <div class="card-body">Every agent invocation passes through the RBAC gateway. No agent can execute a tool, read a secret, or call an API without explicit policy allowance.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon teal">&#128268;</span> Channel Agnostic</div>
+      <div class="card-body">Any channel can trigger any agent. The normalized trigger envelope abstracts the source so agents are completely decoupled from the ingress mechanism.</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon green">&#128230;</span> Skills-First</div>
+      <div class="card-body">Agents gain capabilities via modular skills — installed from SkillHub or defined as custom enterprise packages. Skills bundle tools, prompts, and RBAC in one unit.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== WATCHDOG ===================== -->
+<div class="section">
+  <div class="section-title">The <span>Watchdog Process</span></div>
+  <div class="section-sub">The always-on heartbeat — tiny, stateless, fast. The only process that never sleeps.</div>
+  <div class="grid-2">
+    <div>
+      <h3>Design Goals</h3>
+      <p>The watchdog is the single always-running process. It is intentionally kept minimal — no business logic, no LLM calls, no heavy dependencies. Its sole purpose is to listen, authenticate, route, and spawn.</p>
+      <div class="security-layer">
+        <div class="sec-title">Target Memory Footprint: ~5-15 MB RSS</div>
+        <div class="sec-desc">Achievable with Go, Rust, or minimal Node.js. No framework overhead.</div>
+      </div>
+      <div class="security-layer l2">
+        <div class="sec-title">Single Binary Deployment</div>
+        <div class="sec-desc">Can be installed as a systemd service, launchd daemon, or Windows Service. Optional — can also run as a serverless function itself (AWS Lambda with SQS trigger).</div>
+      </div>
+      <div class="security-layer l3">
+        <div class="sec-title">Non-blocking I/O on all channels</div>
+        <div class="sec-desc">Uses epoll/kqueue or async I/O to listen to hundreds of channels without spawning threads per channel.</div>
+      </div>
+      <div class="security-layer l4">
+        <div class="sec-title">Spawn modes: fork, container, lambda invoke</div>
+        <div class="sec-desc">Agent spawn strategy is pluggable — fork a child process, docker run, kubectl apply a Job, or invoke a Lambda/Cloud Run function.</div>
+      </div>
+      <div class="security-layer l5">
+        <div class="sec-title">Graceful degradation</div>
+        <div class="sec-desc">If an agent fails to spawn, the watchdog queues the trigger with backoff and alerts via configured channels.</div>
+      </div>
+    </div>
+    <div>
+      <h3>Watchdog Config (YAML)</h3>
+      <div class="code-block">
+<span class="cmt"># watchdog.yaml — the always-on config</span>
+<span class="key">watchdog</span>:
+  <span class="key">memory_limit_mb</span>: <span class="num">15</span>
+  <span class="key">spawn_mode</span>: <span class="str">"process"</span>  <span class="cmt"># process | container | lambda</span>
+  <span class="key">max_concurrent_agents</span>: <span class="num">50</span>
+  <span class="key">shutdown_timeout_sec</span>: <span class="num">30</span>
+<span class="key">infra_tier</span>: <span class="str">"lite"</span>  <span class="cmt"># lite | standard | enterprise</span>
+<span class="key">channels</span>:
+  - <span class="key">type</span>: <span class="str">"http_webhook"</span>
+    <span class="key">port</span>: <span class="num">8080</span>
+    <span class="key">path</span>: <span class="str">"/trigger"</span>
+  - <span class="key">type</span>: <span class="str">"slack"</span>
+    <span class="key">app_token</span>: <span class="str">"${SLACK_APP_TOKEN}"</span>
+  - <span class="key">type</span>: <span class="str">"sqs"</span>
+    <span class="key">queue_url</span>: <span class="str">"${SQS_QUEUE_URL}"</span>
+    <span class="key">poll_interval_ms</span>: <span class="num">500</span>
+  - <span class="key">type</span>: <span class="str">"scheduler"</span>
+    <span class="key">store</span>: <span class="str">"sqlite://./data/sched.db"</span>
+<span class="key">security</span>:
+  <span class="key">enforce_rbac</span>: <span class="bool">true</span>
+  <span class="key">auth_server</span>: <span class="str">"http://auth:8081"</span>
+  <span class="key">jwt_secret_env</span>: <span class="str">"JWT_SECRET"</span>
+  <span class="key">pre_check_timeout_ms</span>: <span class="num">100</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== LIFECYCLE ===================== -->
+<div class="section" id="lifecycle">
+  <div class="section-title">Agent <span>Lifecycle</span></div>
+  <div class="section-sub">From trigger received to process terminated — every agent follows this deterministic path</div>
+  <div class="lifecycle">
+    <div class="lc-step"><div class="lc-num">Step 1</div><div class="lc-label">Trigger Received</div><div class="lc-desc">Channel delivers event to watchdog</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step"><div class="lc-num">Step 2</div><div class="lc-label">Normalize</div><div class="lc-desc">Convert to unified Trigger Envelope</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step"><div class="lc-num">Step 3</div><div class="lc-label">Auth + RBAC</div><div class="lc-desc">Validate identity, check policies</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step active"><div class="lc-num">Step 4</div><div class="lc-label">Spawn Agent</div><div class="lc-desc">Fork / container / lambda</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step active"><div class="lc-num">Step 5</div><div class="lc-label">Load Skills + Context</div><div class="lc-desc">Skills, memory, secrets injected</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step active"><div class="lc-num">Step 6</div><div class="lc-label">Execute Task</div><div class="lc-desc">LLM reasoning + skill/tool calls</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step"><div class="lc-num">Step 7</div><div class="lc-label">Persist State</div><div class="lc-desc">Write memory, audit logs</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step"><div class="lc-num">Step 8</div><div class="lc-label">Emit Output</div><div class="lc-desc">Respond to channel / trigger next</div></div>
+    <div class="lc-arrow">&rarr;</div>
+    <div class="lc-step down"><div class="lc-num">Step 9</div><div class="lc-label">Shutdown</div><div class="lc-desc">Process terminates, zero idle</div></div>
+  </div>
+  <br/>
+  <div class="grid-2">
+    <div>
+      <h3>Agent Definition (YAML)</h3>
+      <div class="code-block">
+<span class="cmt"># agents/customer-support.yaml</span>
+<span class="key">apiVersion</span>: <span class="str">"agentix/v1"</span>
+<span class="key">kind</span>: <span class="str">"Agent"</span>
+<span class="key">metadata</span>:
+  <span class="key">name</span>: <span class="str">"customer-support"</span>
+  <span class="key">version</span>: <span class="str">"2.1.0"</span>
+  <span class="key">team</span>: <span class="str">"support-eng"</span>
+<span class="key">spec</span>:
+  <span class="key">model</span>:
+    <span class="key">provider</span>: <span class="str">"anthropic"</span>
+    <span class="key">model_id</span>: <span class="str">"claude-sonnet-4-6"</span>
+    <span class="key">temperature</span>: <span class="num">0.3</span>
+    <span class="key">max_tokens</span>: <span class="num">4096</span>
+  <span class="key">skills</span>:
+    - <span class="str">"zendesk-support"</span>     <span class="cmt"># from SkillHub</span>
+    - <span class="str">"knowledge-base"</span>      <span class="cmt"># built-in</span>
+    - <span class="str">"email-composer"</span>      <span class="cmt"># built-in</span>
+    - <span class="str">"./skills/custom-triage"</span> <span class="cmt"># local</span>
+  <span class="key">tools</span>:
+    - <span class="str">"zendesk.create_ticket"</span>
+    - <span class="str">"zendesk.update_ticket"</span>
+    - <span class="str">"kb.search"</span>
+    - <span class="str">"email.send"</span>
+  <span class="key">memory</span>:
+    <span class="key">short_term</span>: <span class="str">"redis"</span>      <span class="cmt"># or "sqlite" for lite tier</span>
+    <span class="key">long_term</span>: <span class="str">"vector"</span>
+    <span class="key">scope</span>: <span class="str">"user"</span>
+  <span class="key">rbac</span>:
+    <span class="key">role</span>: <span class="str">"support-agent"</span>
+    <span class="key">data_scope</span>: <span class="str">"tenant:{{trigger.tenant_id}}"</span>
+  <span class="key">execution</span>:
+    <span class="key">timeout_sec</span>: <span class="num">120</span>
+    <span class="key">max_tool_calls</span>: <span class="num">20</span>
+    <span class="key">retry</span>:
+      <span class="key">max_attempts</span>: <span class="num">3</span>
+      <span class="key">backoff</span>: <span class="str">"exponential"</span>
+  <span class="key">triggers</span>:
+    - <span class="key">channel</span>: <span class="str">"slack"</span>
+      <span class="key">filter</span>: <span class="str">"channel == '#support'"</span>
+    - <span class="key">channel</span>: <span class="str">"email"</span>
+      <span class="key">filter</span>: <span class="str">"to contains 'support@'"</span>
+      </div>
+    </div>
+    <div>
+      <h3>Trigger Envelope (Internal)</h3>
+      <div class="code-block">
+<span class="cmt">// Normalized across all channel types</span>
+<span class="kw">type</span> <span class="val">TriggerEnvelope</span> = {
+  <span class="key">id</span>: <span class="str">"trig_01J9X..."</span>,
+  <span class="key">timestamp</span>: <span class="str">"2026-03-31T10:00:00Z"</span>,
+  <span class="key">channel</span>: <span class="str">"slack"</span>,
+  <span class="key">channel_meta</span>: {
+    <span class="key">workspace</span>: <span class="str">"acme-corp"</span>,
+    <span class="key">channel_id</span>: <span class="str">"C0ABC123"</span>,
+    <span class="key">thread_ts</span>: <span class="str">"1234567890.000"</span>
+  },
+  <span class="key">caller</span>: {
+    <span class="key">identity_id</span>: <span class="str">"user_01ABC"</span>,
+    <span class="key">roles</span>: [<span class="str">"support-staff"</span>],
+    <span class="key">tenant_id</span>: <span class="str">"tenant_xyz"</span>
+  },
+  <span class="key">payload</span>: {
+    <span class="key">text</span>: <span class="str">"Customer order #4521 missing"</span>,
+    <span class="key">attachments</span>: [],
+    <span class="key">context</span>: {}
+  },
+  <span class="key">agent_id</span>: <span class="str">"customer-support"</span>,
+  <span class="key">priority</span>: <span class="str">"high"</span>,
+  <span class="key">idempotency_key</span>: <span class="str">"slack_msg_abc123"</span>
+}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SKILLS ===================== -->
+<div class="section" id="skills">
+  <div class="section-title">Skills <span>Engine</span></div>
+  <div class="section-sub">Modular, composable capability packages — inspired by OpenClaw's skills system, hardened with RBAC and enterprise isolation</div>
+  <div class="grid-2">
+    <div>
+      <h3>What is a Skill?</h3>
+      <p>A skill is a self-contained capability package that bundles instructions, tools, prompts, and RBAC permissions into a single installable unit. Skills are to Agentix what plugins are to an IDE — agents gain new abilities by installing skills, not by rewriting agent code.</p>
+      <div class="grid-2" style="margin-top:1rem">
+        <div class="card">
+          <div class="card-title"><span class="icon green">&#128230;</span> Built-in Skills</div>
+          <div class="card-body">Ship with Agentix core: web-search, file-ops, email-composer, calendar-manager, code-executor, data-analyzer, report-generator</div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon teal">&#127760;</span> SkillHub (Registry)</div>
+          <div class="card-body">Community + verified marketplace. Browse, install, and version-lock skills. Think npm/PyPI for agent capabilities. Verified publisher badges.</div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon purple">&#128736;</span> Custom Skills</div>
+          <div class="card-body">Define enterprise-private skills in your repo. Git-versioned, CI-tested. Can wrap internal APIs, proprietary workflows, and domain-specific logic.</div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon amber">&#128274;</span> RBAC-Gated</div>
+          <div class="card-body">Each skill declares required permissions. Agent can only activate a skill if its role grants those permissions. Skills cannot escalate beyond their declared scope.</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3>Skill Definition (YAML)</h3>
+      <div class="code-block">
+<span class="cmt"># skills/zendesk-support/SKILL.yaml</span>
+<span class="key">apiVersion</span>: <span class="str">"agentix/v1"</span>
+<span class="key">kind</span>: <span class="str">"Skill"</span>
+<span class="key">metadata</span>:
+  <span class="key">name</span>: <span class="str">"zendesk-support"</span>
+  <span class="key">version</span>: <span class="str">"1.3.0"</span>
+  <span class="key">author</span>: <span class="str">"agentix-community"</span>
+  <span class="key">verified</span>: <span class="bool">true</span>
+  <span class="key">tags</span>: [<span class="str">"support"</span>, <span class="str">"ticketing"</span>, <span class="str">"zendesk"</span>]
+<span class="key">spec</span>:
+  <span class="key">description</span>: <span class="str">"Create, update, and triage
+    Zendesk tickets with smart routing"</span>
+  <span class="key">instructions</span>: <span class="str">"./SKILL.md"</span>  <span class="cmt"># Markdown prompt</span>
+  <span class="key">tools_provided</span>:
+    - <span class="str">"zendesk.create_ticket"</span>
+    - <span class="str">"zendesk.update_ticket"</span>
+    - <span class="str">"zendesk.search_tickets"</span>
+    - <span class="str">"zendesk.assign_ticket"</span>
+  <span class="key">tools_required</span>:
+    - <span class="str">"http_request"</span>  <span class="cmt"># from platform</span>
+  <span class="key">secrets_required</span>:
+    - <span class="key">name</span>: <span class="str">"ZENDESK_API_KEY"</span>
+      <span class="key">vault_path</span>: <span class="str">"vault://zendesk/api_key"</span>
+  <span class="key">rbac</span>:
+    <span class="key">permissions_needed</span>:
+      - <span class="str">"zendesk:read"</span>
+      - <span class="str">"zendesk:write"</span>
+    <span class="key">data_scope</span>: <span class="str">"tenant"</span>
+  <span class="key">config</span>:
+    <span class="key">zendesk_subdomain</span>: <span class="str">"{{env.ZENDESK_SUBDOMAIN}}"</span>
+    <span class="key">auto_assign</span>: <span class="bool">true</span>
+    <span class="key">priority_mapping</span>:
+      <span class="key">urgent</span>: <span class="str">"p0"</span>
+      <span class="key">high</span>: <span class="str">"p1"</span>
+      <span class="key">normal</span>: <span class="str">"p2"</span>
+      </div>
+      <h3 style="margin-top:1rem">Install & Use</h3>
+      <div class="code-block">
+<span class="cmt"># Install from SkillHub</span>
+$ agentix skill install zendesk-support
+
+<span class="cmt"># Install from Git repo (enterprise)</span>
+$ agentix skill install git@corp.com:skills/custom-triage.git
+
+<span class="cmt"># List installed skills</span>
+$ agentix skill list
+  zendesk-support   v1.3.0  <span class="str">verified</span>
+  knowledge-base    v2.0.1  <span class="str">built-in</span>
+  custom-triage     v0.4.0  <span class="str">local</span>
+
+<span class="cmt"># Skills auto-activate when agent loads</span>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:1.5rem">
+    <h3>Skill vs Tool — What's the Difference?</h3>
+    <div style="overflow-x:auto">
+    <table class="rbac-table">
+      <thead>
+        <tr><th>Dimension</th><th>Skill</th><th>Tool</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Scope</td><td>Bundle of tools + instructions + config + RBAC</td><td>Single callable function</td></tr>
+        <tr><td>Intelligence</td><td>Contains a SKILL.md with domain knowledge and prompt guidance</td><td>Dumb — executes what the LLM asks, no domain context</td></tr>
+        <tr><td>Composability</td><td>A skill can depend on other skills and tools</td><td>Standalone, no dependencies</td></tr>
+        <tr><td>Distribution</td><td>Published to SkillHub, versioned, signed</td><td>Registered in Tool Registry, no marketplace</td></tr>
+        <tr><td>RBAC</td><td>Declares its own permission requirements</td><td>Inherits permissions from the agent's role</td></tr>
+        <tr><td>Analogy</td><td>An app on your phone (UI + logic + data)</td><td>A single API endpoint</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CHANNELS ===================== -->
+<div class="section" id="channels">
+  <div class="section-title">Ingress <span>Channels</span></div>
+  <div class="section-sub">Any channel can trigger any agent. New channels are added via adapter plugins.</div>
+  <div class="channel-grid">
+    <div class="channel-card"><span class="channel-icon">&#128279;</span><div><div class="channel-name">HTTP Webhook</div><div class="channel-type">Push / REST</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#9889;</span><div><div class="channel-name">WebSocket</div><div class="channel-type">Real-time / Bidirectional</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128172;</span><div><div class="channel-name">Slack</div><div class="channel-type">Events API / Socket</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#129001;</span><div><div class="channel-name">MS Teams</div><div class="channel-type">Bot Framework</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#127918;</span><div><div class="channel-name">Discord</div><div class="channel-type">Bot Gateway</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128231;</span><div><div class="channel-name">Email</div><div class="channel-type">IMAP/SMTP/SES</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128232;</span><div><div class="channel-name">SQS / RabbitMQ</div><div class="channel-type">Message Queue</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#127754;</span><div><div class="channel-name">Kafka</div><div class="channel-type">Event Stream</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#9200;</span><div><div class="channel-name">Cron Scheduler</div><div class="channel-type">Time-based</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128225;</span><div><div class="channel-name">gRPC</div><div class="channel-type">RPC / Streaming</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128193;</span><div><div class="channel-name">File Watcher</div><div class="channel-type">inotify / FSEvents</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128452;</span><div><div class="channel-name">DB Change Stream</div><div class="channel-type">CDC / Debezium</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128241;</span><div><div class="channel-name">SMS / WhatsApp</div><div class="channel-type">Twilio / Meta</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128276;</span><div><div class="channel-name">Push Notification</div><div class="channel-type">FCM / APNs</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#129302;</span><div><div class="channel-name">Agent-to-Agent</div><div class="channel-type">Internal Bus</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128268;</span><div><div class="channel-name">Custom Plugin</div><div class="channel-type">Adapter Interface</div></div></div>
+  </div>
+</div>
+
+<!-- ===================== SECURITY & RBAC ===================== -->
+<div class="section" id="security">
+  <div class="section-title">Security & <span>RBAC</span></div>
+  <div class="section-sub">Multi-layer security model — every call is authenticated, every action is authorized, everything is audited</div>
+  <div class="grid-2">
+    <div>
+      <h3>Security Layers (Defense in Depth)</h3>
+      <div class="security-layer">
+        <div class="sec-title">Layer 1 — Channel Authentication</div>
+        <div class="sec-desc">Webhook HMAC signatures, Slack signing secrets, mTLS for gRPC. Unauthenticated requests never reach the watchdog core.</div>
+      </div>
+      <div class="security-layer l2">
+        <div class="sec-title">Layer 2 — Identity Verification (AuthN)</div>
+        <div class="sec-desc">JWT / OAuth2 / API key validation against IdP (Keycloak, Auth0, AWS Cognito). Token claims carry role + tenant context.</div>
+      </div>
+      <div class="security-layer l3">
+        <div class="sec-title">Layer 3 — RBAC Authorization (AuthZ)</div>
+        <div class="sec-desc">Policy engine (OPA / Casbin) evaluates: can this identity, in this role, trigger this agent, from this channel, on this tenant's data?</div>
+      </div>
+      <div class="security-layer l4">
+        <div class="sec-title">Layer 4 — Skill + Tool-Level Permissions</div>
+        <div class="sec-desc">Each skill and tool call inside the agent runtime is validated. An agent cannot activate a skill or call a tool not in its allowed list.</div>
+      </div>
+      <div class="security-layer l5">
+        <div class="sec-title">Layer 5 — Data Scoping</div>
+        <div class="sec-desc">Agents can only read/write data within their tenant/user scope. Row-level security enforced at the state store and vector DB layers.</div>
+      </div>
+      <div class="security-layer l6">
+        <div class="sec-title">Layer 6 — Immutable Audit Log</div>
+        <div class="sec-desc">Every trigger, spawn, skill activation, tool call, output, and shutdown is written to an append-only audit log with cryptographic chaining.</div>
+      </div>
+    </div>
+    <div>
+      <h3>RBAC Policy Example (OPA)</h3>
+      <div class="code-block">
+<span class="cmt"># policy.rego — Open Policy Agent</span>
+<span class="kw">package</span> agentix.authz
+<span class="kw">default</span> allow = <span class="bool">false</span>
+
+<span class="kw">allow</span> {
+  role := input.caller.roles[_]
+  perm := data.roles[role].permissions[_]
+  perm.agent == input.agent_id
+  perm.action == <span class="str">"trigger"</span>
+  channel_allowed(perm, input.channel)
+}
+
+<span class="cmt"># Allow skill activation</span>
+allow_skill {
+  agent_def := data.agents[input.agent_id]
+  input.skill_name == agent_def.skills[_]
+  skill_perms_satisfied
+}
+
+<span class="cmt"># Allow tool call inside agent</span>
+allow_tool {
+  agent_def := data.agents[input.agent_id]
+  input.tool_name == agent_def.tools[_]
+  within_data_scope
+}
+
+within_data_scope {
+  input.resource.tenant_id == input.caller.tenant_id
+}
+      </div>
+      <h3 style="margin-top:1rem">RBAC Role Matrix</h3>
+      <div style="overflow-x:auto">
+      <table class="rbac-table">
+        <thead><tr><th>Role</th><th>Trigger Agents</th><th>Install Skills</th><th>Define Agents</th><th>View Logs</th><th>Manage Users</th></tr></thead>
+        <tbody>
+          <tr><td>end-user</td><td><span class="perm allow">own scope</span></td><td><span class="perm deny">no</span></td><td><span class="perm deny">no</span></td><td><span class="perm allow">own</span></td><td><span class="perm deny">no</span></td></tr>
+          <tr><td>operator</td><td><span class="perm allow">team scope</span></td><td><span class="perm cond">approved</span></td><td><span class="perm cond">draft</span></td><td><span class="perm allow">team</span></td><td><span class="perm deny">no</span></td></tr>
+          <tr><td>agent-author</td><td><span class="perm allow">tenant</span></td><td><span class="perm allow">yes</span></td><td><span class="perm allow">own</span></td><td><span class="perm allow">tenant</span></td><td><span class="perm deny">no</span></td></tr>
+          <tr><td>tenant-admin</td><td><span class="perm allow">tenant</span></td><td><span class="perm allow">yes</span></td><td><span class="perm allow">tenant</span></td><td><span class="perm allow">tenant</span></td><td><span class="perm allow">tenant</span></td></tr>
+          <tr><td>platform-admin</td><td><span class="perm allow">all</span></td><td><span class="perm allow">all</span></td><td><span class="perm allow">all</span></td><td><span class="perm allow">all</span></td><td><span class="perm allow">all</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SCHEDULER ===================== -->
+<div class="section" id="scheduler">
+  <div class="section-title">Intelligent <span>Scheduler</span></div>
+  <div class="section-sub">Three modes of scheduling: cron-based, event-based, and dependency-chain DAGs</div>
+  <div class="grid-2">
+    <div>
+      <h3>Scheduling Modes</h3>
+      <div class="grid-3" style="margin-bottom:1.2rem">
+        <div class="card"><div class="card-title"><span class="icon amber">&#9200;</span> Cron</div><div class="card-body">Standard cron expressions. Timezone-aware. Supports second-level precision.</div></div>
+        <div class="card"><div class="card-title"><span class="icon teal">&#128197;</span> One-Shot</div><div class="card-body">Fire once at a specific datetime. Used for reminders, delayed tasks, SLA deadlines.</div></div>
+        <div class="card"><div class="card-title"><span class="icon blue">&#128279;</span> DAG Chain</div><div class="card-body">Agent A completes -> triggers Agent B -> fan-out to C and D. Full dependency graph.</div></div>
+      </div>
+      <h3>Cron Schedule Examples</h3>
+      <div class="sched-example"><div class="cron">0 9 * * MON-FRI</div><div class="label">Daily standup summary to Slack #engineering at 9am weekdays</div></div>
+      <div class="sched-example"><div class="cron">0 0 1 * *</div><div class="label">Monthly billing reconciliation agent — runs 1st of every month</div></div>
+      <div class="sched-example"><div class="cron">*/15 * * * *</div><div class="label">Metrics aggregator — runs every 15 minutes, writes to dashboard</div></div>
+      <div class="sched-example"><div class="cron">0 18 * * FRI</div><div class="label">Weekly report agent — compiles and emails summary every Friday</div></div>
+    </div>
+    <div>
+      <h3>Scheduler Config (YAML)</h3>
+      <div class="code-block">
+<span class="cmt"># schedules/weekly-report.yaml</span>
+<span class="key">apiVersion</span>: <span class="str">"agentix/v1"</span>
+<span class="key">kind</span>: <span class="str">"Schedule"</span>
+<span class="key">metadata</span>:
+  <span class="key">name</span>: <span class="str">"weekly-report"</span>
+<span class="key">spec</span>:
+  <span class="key">type</span>: <span class="str">"cron"</span>
+  <span class="key">expression</span>: <span class="str">"0 18 * * FRI"</span>
+  <span class="key">timezone</span>: <span class="str">"America/New_York"</span>
+  <span class="key">agent</span>: <span class="str">"report-generator"</span>
+  <span class="key">payload</span>:
+    <span class="key">report_type</span>: <span class="str">"weekly_summary"</span>
+    <span class="key">recipients</span>: [<span class="str">"leadership@acme.com"</span>]
+  <span class="key">rbac</span>:
+    <span class="key">run_as_role</span>: <span class="str">"scheduler-service"</span>
+    <span class="key">tenant_id</span>: <span class="str">"acme-corp"</span>
+---
+<span class="cmt"># schedules/dag-pipeline.yaml</span>
+<span class="key">apiVersion</span>: <span class="str">"agentix/v1"</span>
+<span class="key">kind</span>: <span class="str">"Pipeline"</span>
+<span class="key">metadata</span>:
+  <span class="key">name</span>: <span class="str">"nightly-etl"</span>
+<span class="key">spec</span>:
+  <span class="key">trigger</span>:
+    <span class="key">type</span>: <span class="str">"cron"</span>
+    <span class="key">expression</span>: <span class="str">"0 2 * * *"</span>
+  <span class="key">steps</span>:
+    - <span class="key">id</span>: <span class="str">"extract"</span>
+      <span class="key">agent</span>: <span class="str">"data-extractor"</span>
+    - <span class="key">id</span>: <span class="str">"transform"</span>
+      <span class="key">agent</span>: <span class="str">"data-transformer"</span>
+      <span class="key">depends_on</span>: [<span class="str">"extract"</span>]
+    - <span class="key">id</span>: <span class="str">"load-db"</span>
+      <span class="key">agent</span>: <span class="str">"db-loader"</span>
+      <span class="key">depends_on</span>: [<span class="str">"transform"</span>]
+    - <span class="key">id</span>: <span class="str">"load-cache"</span>
+      <span class="key">agent</span>: <span class="str">"cache-warmer"</span>
+      <span class="key">depends_on</span>: [<span class="str">"transform"</span>]
+    - <span class="key">id</span>: <span class="str">"notify"</span>
+      <span class="key">agent</span>: <span class="str">"slack-notifier"</span>
+      <span class="key">depends_on</span>: [<span class="str">"load-db"</span>, <span class="str">"load-cache"</span>]
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ORCHESTRATION ===================== -->
+<div class="section" id="orchestration">
+  <div class="section-title">Multi-Agent <span>Orchestration</span></div>
+  <div class="section-sub">Complex workflows — sequential chains, parallel fan-out, hierarchical delegation, and human-in-the-loop</div>
+  <div class="grid-3">
+    <div class="card"><div class="card-title"><span class="icon teal">&#128256;</span> Sequential Chain</div><div class="card-body">Agent A -> Agent B -> Agent C. Each agent receives the output of the previous as context. Used for research -> analysis -> report pipelines.<ul style="margin-top:.5rem"><li>Output passing via state store</li><li>Each agent has its own RBAC context</li><li>Failure in any step halts chain with rollback</li></ul></div></div>
+    <div class="card"><div class="card-title"><span class="icon blue">&#127807;</span> Parallel Fan-Out</div><div class="card-body">One trigger spawns N agents simultaneously. Results aggregated by a collector agent. Ideal for multi-source research.<ul style="margin-top:.5rem"><li>Configurable concurrency limit</li><li>Partial result handling</li><li>Timeout-based aggregation</li></ul></div></div>
+    <div class="card"><div class="card-title"><span class="icon purple">&#127919;</span> Supervisor Pattern</div><div class="card-body">A planner/orchestrator agent dynamically decides which specialist agents to call based on LLM reasoning.<ul style="margin-top:.5rem"><li>Dynamic routing at runtime</li><li>Supervisor has elevated RBAC</li><li>Max delegation depth enforced</li></ul></div></div>
+    <div class="card"><div class="card-title"><span class="icon green">&#129309;</span> Human-in-the-Loop</div><div class="card-body">Agent pauses at checkpoints, requests human approval via any channel, then resumes or aborts.<ul style="margin-top:.5rem"><li>Approval timeout with auto-abort</li><li>Approval link with JWT expiry</li><li>Audit trail of human decisions</li></ul></div></div>
+    <div class="card"><div class="card-title"><span class="icon amber">&#128260;</span> Retry + Compensation</div><div class="card-body">Failed agents trigger compensation actions (saga pattern). Exponential backoff with jitter. Dead-letter queue.<ul style="margin-top:.5rem"><li>Configurable backoff strategy</li><li>Compensating agent definition</li><li>Idempotency key enforcement</li></ul></div></div>
+    <div class="card"><div class="card-title"><span class="icon red">&#128257;</span> Event-Driven Cascade</div><div class="card-body">Agent emits domain events on completion. Other agents subscribed to those events automatically trigger. Fully decoupled.<ul style="margin-top:.5rem"><li>Event schema registry</li><li>At-least-once delivery</li><li>Event replay for debugging</li></ul></div></div>
+  </div>
+</div>
+
+<!-- ===================== MEMORY ===================== -->
+<div class="section">
+  <div class="section-title">Memory & <span>State</span></div>
+  <div class="section-sub">Agents are ephemeral but their memory is not — three-tier memory architecture with tiered infrastructure options</div>
+  <div class="grid-3">
+    <div class="card" style="border-color:var(--accent)">
+      <div class="card-title"><span class="icon blue">&#9889;</span> Tier 1: Working Memory</div>
+      <div class="card-body">
+        TTL-based, in-memory store for a single agent execution or conversation session.
+        <ul>
+          <li><b>Lite:</b> SQLite in-memory / file</li>
+          <li><b>Standard:</b> Redis / Valkey</li>
+          <li>Conversation history (last N turns)</li>
+          <li>Intermediate tool results</li>
+          <li>TTL: configurable (default 1hr)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent3)">
+      <div class="card-title"><span class="icon teal">&#129504;</span> Tier 2: Semantic Memory</div>
+      <div class="card-body">
+        Embeddings-based retrieval of past interactions and knowledge.
+        <ul>
+          <li><b>Lite:</b> sqlite-vec (zero-dep)</li>
+          <li><b>Standard:</b> pgvector / Chroma</li>
+          <li>Auto-embed agent outputs</li>
+          <li>Similarity search at context-load</li>
+          <li>Configurable retention policy</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent4)">
+      <div class="card-title"><span class="icon green">&#128452;</span> Tier 3: Structured Memory</div>
+      <div class="card-body">
+        Relational storage for structured knowledge and entities.
+        <ul>
+          <li><b>Lite:</b> SQLite (single file)</li>
+          <li><b>Standard:</b> PostgreSQL</li>
+          <li>Named memory slots (key-value)</li>
+          <li>Entity store (people, orgs)</li>
+          <li>Encrypted at rest</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TOOL REGISTRY ===================== -->
+<div class="section">
+  <div class="section-title">Tool <span>Registry</span></div>
+  <div class="section-sub">Centrally managed catalog of all tools available to agents, with per-tool RBAC and rate limiting</div>
+  <div class="grid-2">
+    <div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title"><span class="icon blue">&#128268;</span> Built-in Tools</div><div class="card-body">web_search, web_fetch, file_read, file_write, bash_exec, http_request, email_send, calendar_*, database_query</div></div>
+        <div class="card"><div class="card-title"><span class="icon teal">&#128279;</span> MCP Connectors</div><div class="card-body">Slack, GitHub, Linear, Notion, Jira, Salesforce, Zendesk, HubSpot, GDrive — any MCP-compatible service</div></div>
+        <div class="card"><div class="card-title"><span class="icon purple">&#9881;</span> Custom Tools</div><div class="card-body">Register any function as a tool via OpenAPI spec or simple function decorator. Auto-generates JSON schema.</div></div>
+        <div class="card"><div class="card-title"><span class="icon amber">&#129302;</span> Agent-as-Tool</div><div class="card-body">Any agent can be called as a tool by another agent. Enables recursive, composable agent architectures.</div></div>
+      </div>
+    </div>
+    <div>
+      <h3>Tool Definition</h3>
+      <div class="code-block">
+<span class="cmt"># tools/zendesk-create-ticket.yaml</span>
+<span class="key">apiVersion</span>: <span class="str">"agentix/v1"</span>
+<span class="key">kind</span>: <span class="str">"Tool"</span>
+<span class="key">metadata</span>:
+  <span class="key">name</span>: <span class="str">"zendesk.create_ticket"</span>
+  <span class="key">category</span>: <span class="str">"customer-support"</span>
+<span class="key">spec</span>:
+  <span class="key">description</span>: <span class="str">"Create a support ticket in Zendesk"</span>
+  <span class="key">input_schema</span>:
+    <span class="key">subject</span>: { <span class="key">type</span>: <span class="str">string</span>, <span class="key">required</span>: <span class="bool">true</span> }
+    <span class="key">body</span>: { <span class="key">type</span>: <span class="str">string</span>, <span class="key">required</span>: <span class="bool">true</span> }
+    <span class="key">priority</span>: { <span class="key">type</span>: <span class="str">string</span>, <span class="key">enum</span>: [<span class="str">"low"</span>,<span class="str">"normal"</span>,<span class="str">"high"</span>] }
+  <span class="key">auth</span>:
+    <span class="key">type</span>: <span class="str">"api_key"</span>
+    <span class="key">secret_ref</span>: <span class="str">"vault://zendesk/api_key"</span>
+  <span class="key">rbac</span>:
+    <span class="key">required_permission</span>: <span class="str">"zendesk:create_ticket"</span>
+  <span class="key">rate_limit</span>:
+    <span class="key">per_agent</span>: <span class="num">100</span>
+    <span class="key">per_tenant_per_hour</span>: <span class="num">1000</span>
+  <span class="key">cost</span>:
+    <span class="key">credits_per_call</span>: <span class="num">1</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== OBSERVABILITY ===================== -->
+<div class="section" id="observability">
+  <div class="section-title">Observability & <span>Operations</span></div>
+  <div class="section-sub">Full-stack visibility into every agent invocation — traces, metrics, logs, costs</div>
+  <div class="grid-4">
+    <div class="card"><div class="card-title"><span class="icon blue">&#128202;</span> Distributed Tracing</div><div class="card-body">OpenTelemetry spans for every trigger -> spawn -> LLM call -> tool call -> output. Jaeger/Tempo backend.</div></div>
+    <div class="card"><div class="card-title"><span class="icon green">&#128200;</span> Metrics</div><div class="card-body">Agent invocations/sec, p50/p95/p99 latency, error rate, LLM token usage, tool call counts. Prometheus + Grafana.</div></div>
+    <div class="card"><div class="card-title"><span class="icon teal">&#128221;</span> Structured Logs</div><div class="card-body">JSON logs for every event. Indexed in Loki. Searchable by agent, tenant, trigger_id.</div></div>
+    <div class="card"><div class="card-title"><span class="icon amber">&#128176;</span> Cost Tracking</div><div class="card-body">Per-agent, per-tenant, per-model cost ledger. Budget alerts and hard quota stops.</div></div>
+    <div class="card"><div class="card-title"><span class="icon purple">&#128274;</span> Immutable Audit Log</div><div class="card-body">Append-only log of all security events. WORM-compatible storage.</div></div>
+    <div class="card"><div class="card-title"><span class="icon red">&#128680;</span> Alerting</div><div class="card-body">Alert on error rate spikes, cost overruns, failed schedules. Route to Slack, PagerDuty, email.</div></div>
+    <div class="card"><div class="card-title"><span class="icon green">&#128269;</span> Replay & Debug</div><div class="card-body">Re-run any past trigger with the same context. Step through LLM + tool decisions.</div></div>
+    <div class="card"><div class="card-title"><span class="icon teal">&#128421;</span> Admin UI</div><div class="card-body">Web dashboard to manage agents, skills, schedules, roles, secrets, and inspect audit logs.</div></div>
+  </div>
+</div>
+
+<!-- ===================== FEATURE COMPARISON ===================== -->
+<div class="section" id="comparison">
+  <div class="section-title">Feature <span>Comparison</span></div>
+  <div class="section-sub">Agentix vs. OpenClaw and other platforms — where the serverless + security-first + skills approach differentiates</div>
+  <div style="overflow-x:auto">
+  <table class="cmp-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th class="highlight">Agentix</th>
+        <th>OpenClaw</th>
+        <th>AutoGen</th>
+        <th>CrewAI</th>
+        <th>LangGraph</th>
+        <th>n8n</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Zero-Idle Serverless Runtime</td><td class="tick highlight">Native</td><td class="cross">Always-on gateway</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Partial</td></tr>
+      <tr><td>RBAC (built-in, policy-based)</td><td class="tick highlight">OPA/Casbin, 6-layer</td><td class="partial">Enterprise only (Adopt AI)</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Basic</td></tr>
+      <tr><td>Skills / Plugin System</td><td class="tick highlight">SkillHub + RBAC-gated</td><td class="tick">ClawHub, 100+ skills</td><td class="cross">No</td><td class="partial">Basic tools</td><td class="cross">No</td><td class="tick">Nodes/Plugins</td></tr>
+      <tr><td>Multi-Channel Triggers</td><td class="tick highlight">16+ native channels</td><td class="tick">Signal, Telegram, Discord, WhatsApp, Slack</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="tick">Yes</td></tr>
+      <tr><td>Cron + DAG Scheduler</td><td class="tick highlight">Cron + DAG + one-shot</td><td class="partial">Heartbeat (30-min poll)</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Via LangSmith</td><td class="tick">Yes</td></tr>
+      <tr><td>Multi-Agent Orchestration</td><td class="tick highlight">4 patterns + supervisor</td><td class="partial">Sub-agents, sessions_send</td><td class="tick">Native</td><td class="tick">Crews</td><td class="tick">Graph-based</td><td class="partial">Limited</td></tr>
+      <tr><td>Agent-as-Tool Composition</td><td class="tick highlight">Yes</td><td class="partial">Via sessions_send</td><td class="tick">Yes</td><td class="partial">Partial</td><td class="tick">Yes</td><td class="cross">No</td></tr>
+      <tr><td>Three-Tier Memory</td><td class="tick highlight">Redis+Vector+SQL (tiered)</td><td class="partial">SQLite/Postgres + memory</td><td class="partial">Basic</td><td class="partial">Basic</td><td class="partial">Basic</td><td class="cross">No</td></tr>
+      <tr><td>Secrets Vault Integration</td><td class="tick highlight">Native (Vault/AWS SM)</td><td class="partial">Env vars / basic</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Credentials</td></tr>
+      <tr><td>Immutable Audit Log</td><td class="tick highlight">Cryptographic chain</td><td class="cross">No formal audit</td><td class="cross">No</td><td class="cross">No</td><td class="partial">LangSmith</td><td class="cross">No</td></tr>
+      <tr><td>Human-in-the-Loop</td><td class="tick highlight">Any channel approval</td><td class="tick">Chat-based</td><td class="tick">Yes</td><td class="partial">Basic</td><td class="tick">Yes</td><td class="tick">Yes</td></tr>
+      <tr><td>Multi-Tenant Native</td><td class="tick highlight">Tenant isolation + scoping</td><td class="partial">Workspace isolation</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Limited</td></tr>
+      <tr><td>OpenTelemetry Tracing</td><td class="tick highlight">Full OTel stack</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="tick">LangSmith</td><td class="partial">Basic</td></tr>
+      <tr><td>Cost Ledger per Agent</td><td class="tick highlight">Per-agent, per-tenant</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Basic</td><td class="cross">No</td></tr>
+      <tr><td>GitOps Agent Definitions</td><td class="tick highlight">YAML + Git + ArgoCD</td><td class="partial">SOUL.md in repo</td><td class="cross">No</td><td class="partial">Basic</td><td class="cross">No</td><td class="partial">JSON export</td></tr>
+      <tr><td>Zero External Dependencies (Lite)</td><td class="tick highlight">SQLite-only mode</td><td class="partial">SQLite + Node.js</td><td class="cross">Python env</td><td class="cross">Python env</td><td class="cross">Python env</td><td class="cross">Docker + DB</td></tr>
+      <tr><td>SOC 2 / Compliance Ready</td><td class="tick highlight">Built-in audit + vault</td><td class="partial">Only via Adopt AI (paid)</td><td class="cross">No</td><td class="cross">No</td><td class="partial">LangSmith</td><td class="partial">Enterprise</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="margin-top:1.5rem">
+    <h3>Key Differentiators vs. OpenClaw</h3>
+    <div class="grid-3">
+      <div class="card" style="border-left:3px solid var(--accent)">
+        <div class="card-title">Serverless vs. Always-On</div>
+        <div class="card-body">OpenClaw runs an always-on Node.js gateway process (~200-500 MB RAM). Agentix's watchdog is ~5 MB, and agents scale to zero. OpenClaw's gateway must be running 24/7 even when idle.</div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent2)">
+        <div class="card-title">Enterprise Security vs. User-Managed</div>
+        <div class="card-body">OpenClaw's base platform has no RBAC or formal compliance — it relies on the user to sandbox properly. Enterprise RBAC requires the paid Adopt AI fork. Agentix bakes 6-layer security into the core.</div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent3)">
+        <div class="card-title">Skills: Inspired but Hardened</div>
+        <div class="card-body">Agentix adopts OpenClaw's excellent SKILL.md pattern but adds RBAC-gated activation, permission declarations, secrets management, and a verified publisher system. Skills can't escalate privileges.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== INFRASTRUCTURE & COST ===================== -->
+<div class="section" id="infra-cost">
+  <div class="section-title">Infrastructure <span>Requirements & Cost</span></div>
+  <div class="section-sub">Agentix is designed with tiered infrastructure — run with zero external services or scale to full enterprise stack</div>
+
+  <div class="grid-3" style="margin-bottom:2rem">
+    <div class="card" style="border-color:var(--accent4)">
+      <div class="card-title"><span class="tier-badge minimal">LITE TIER</span></div>
+      <div class="card-body" style="margin-top:.8rem">
+        <b style="color:var(--text)">Zero external services required</b><br/><br/>
+        Storage: SQLite (single file)<br/>
+        Vector: sqlite-vec (embedded)<br/>
+        Cache: In-process / SQLite WAL<br/>
+        Scheduler: Built-in cron<br/>
+        Auth: JWT with local keys<br/><br/>
+        <b style="color:var(--accent4)">Cost: $0/mo for infra</b><br/>
+        Only pay for LLM API calls<br/><br/>
+        <span style="font-size:.75rem;color:var(--muted)">Perfect for: personal agents, dev, small teams, POCs</span>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent5)">
+      <div class="card-title"><span class="tier-badge moderate">STANDARD TIER</span></div>
+      <div class="card-body" style="margin-top:.8rem">
+        <b style="color:var(--text)">PostgreSQL + Redis</b><br/><br/>
+        Storage: PostgreSQL<br/>
+        Vector: pgvector (in same PG)<br/>
+        Cache: Redis / Valkey<br/>
+        Scheduler: Redis-backed<br/>
+        Auth: Keycloak / Auth0<br/><br/>
+        <b style="color:var(--accent5)">Cost: ~$20-80/mo</b><br/>
+        (managed PG + Redis on cloud)<br/><br/>
+        <span style="font-size:.75rem;color:var(--muted)">Perfect for: teams, production workloads, multi-user</span>
+      </div>
+    </div>
+    <div class="card" style="border-color:var(--accent2)">
+      <div class="card-title"><span class="tier-badge full">ENTERPRISE TIER</span></div>
+      <div class="card-body" style="margin-top:.8rem">
+        <b style="color:var(--text)">Full Stack + HA + Compliance</b><br/><br/>
+        Storage: PostgreSQL (HA cluster)<br/>
+        Vector: Dedicated (Weaviate/Pinecone)<br/>
+        Cache: Redis Cluster<br/>
+        Secrets: HashiCorp Vault<br/>
+        Auth: Enterprise IdP + OPA<br/>
+        Observability: Full OTel stack<br/><br/>
+        <b style="color:#c4b5fd">Cost: ~$200-800+/mo</b><br/>
+        (managed services, HA, support)<br/><br/>
+        <span style="font-size:.75rem;color:var(--muted)">Perfect for: enterprise, compliance, multi-tenant SaaS</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>Infrastructure Cost Comparison</h3>
+  <div style="overflow-x:auto">
+  <table class="cost-table">
+    <thead>
+      <tr>
+        <th>Service Required</th>
+        <th>Agentix (Lite)</th>
+        <th>Agentix (Standard)</th>
+        <th>OpenClaw (Self-hosted)</th>
+        <th>n8n (Self-hosted)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Relational Database</td>
+        <td class="free">SQLite (embedded, $0)</td>
+        <td class="paid">PostgreSQL (~$15/mo managed)</td>
+        <td class="paid">PostgreSQL (~$15/mo managed)</td>
+        <td class="paid">PostgreSQL (~$15/mo managed)</td>
+      </tr>
+      <tr>
+        <td>Cache / Session Store</td>
+        <td class="free">In-process ($0)</td>
+        <td class="paid">Redis (~$10/mo managed)</td>
+        <td class="paid">Redis (~$10/mo managed)</td>
+        <td class="free">Not required</td>
+      </tr>
+      <tr>
+        <td>Vector Database</td>
+        <td class="free">sqlite-vec ($0)</td>
+        <td class="free">pgvector (in PG, $0 extra)</td>
+        <td class="free">SQLite / none</td>
+        <td class="cross">Not supported</td>
+      </tr>
+      <tr>
+        <td>Always-On Process</td>
+        <td class="free">~5 MB watchdog</td>
+        <td class="free">~5 MB watchdog</td>
+        <td class="expensive">~200-500 MB Node.js gateway</td>
+        <td class="expensive">~300-500 MB Node.js server</td>
+      </tr>
+      <tr>
+        <td>Compute (VPS/Cloud)</td>
+        <td class="free">512 MB RAM sufficient</td>
+        <td class="paid">1 GB RAM ($5-10/mo)</td>
+        <td class="paid">2+ GB RAM ($10-20/mo)</td>
+        <td class="paid">2+ GB RAM ($10-20/mo)</td>
+      </tr>
+      <tr>
+        <td>Auth / Identity</td>
+        <td class="free">JWT local ($0)</td>
+        <td class="paid">Keycloak/Auth0 (free tier)</td>
+        <td class="free">Basic auth ($0)</td>
+        <td class="paid">Built-in basic</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:var(--text)">Minimum Monthly Cost</td>
+        <td style="font-weight:700;color:var(--accent4)">~$5 (VPS only)</td>
+        <td style="font-weight:700;color:var(--accent5)">~$30-50</td>
+        <td style="font-weight:700;color:var(--accent5)">~$25-45</td>
+        <td style="font-weight:700;color:var(--accent5)">~$25-35</td>
+      </tr>
+      <tr>
+        <td style="font-weight:700;color:var(--text)">+ LLM API Costs</td>
+        <td colspan="4" style="text-align:center;color:var(--muted)">All platforms: $10-500+/mo depending on usage (same across all — this is the dominant cost)</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="margin-top:1.5rem">
+    <h3>The Bottom Line on Cost</h3>
+    <div class="grid-2">
+      <div class="card" style="border-left:3px solid var(--accent4)">
+        <div class="card-title">Agentix Lite is the cheapest option</div>
+        <div class="card-body">With SQLite + sqlite-vec + in-process cache, Agentix Lite needs zero external services. A $5/mo VPS (or even a Raspberry Pi) can run the entire stack. The LLM API is always the real cost — not infrastructure.</div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--accent5)">
+        <div class="card-title">Standard/Enterprise adds cost for a reason</div>
+        <div class="card-body">PostgreSQL + Redis are only needed for multi-user production, HA, and compliance. Yes, that adds ~$25-50/mo in managed services — but you get concurrent access, ACID transactions, proper vector search, and enterprise audit. OpenClaw requires similar infra at the same scale.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== DEPLOYMENT ===================== -->
+<div class="section">
+  <div class="section-title">Deployment <span>Modes</span></div>
+  <div class="section-sub">From laptop to global multi-region — the same platform runs everywhere</div>
+  <div class="grid-4">
+    <div class="card"><div class="card-title"><span class="icon green">&#128187;</span> Local / Dev (Lite)</div><div class="card-body">Single binary. SQLite only. No containers needed. <code style="color:var(--accent3);font-size:.75rem">agentix dev start</code> boots everything in one command. 512 MB RAM.</div></div>
+    <div class="card"><div class="card-title"><span class="icon blue">&#128051;</span> Docker Compose (Standard)</div><div class="card-body">Watchdog + PostgreSQL + Redis + Admin UI. Production-like locally. One docker-compose.yaml.</div></div>
+    <div class="card"><div class="card-title"><span class="icon teal">&#9784;</span> Kubernetes (Enterprise)</div><div class="card-body">Watchdog as Deployment, agents as Jobs. Horizontal scaling, namespace isolation per tenant, KEDA autoscaling.</div></div>
+    <div class="card"><div class="card-title"><span class="icon amber">&#9729;</span> Full Serverless</div><div class="card-body">Watchdog on Fargate/Cloud Run. Agents on Lambda/Cloud Functions. Zero fixed infra cost. Scales to zero.</div></div>
+  </div>
+</div>
+
+<!-- ===================== TECH STACK ===================== -->
+<div class="section">
+  <div class="section-title">Recommended <span>Tech Stack</span></div>
+  <div class="section-sub">Battle-tested choices for each layer — every component is swappable, every dependency is optional beyond core</div>
+  <div class="grid-2">
+    <div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Watchdog Runtime</span><span class="pill blue">Go</span><span class="pill blue">Rust</span><span class="pill green">Node.js (lightweight)</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Agent Runtime</span><span class="pill blue">Python</span><span class="pill blue">TypeScript</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Policy Engine</span><span class="pill purple">Open Policy Agent</span><span class="pill purple">Casbin</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Identity Provider</span><span class="pill purple">Keycloak</span><span class="pill purple">Auth0</span><span class="pill purple">Cognito</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Working Memory</span><span class="pill green">SQLite (lite)</span><span class="pill blue">Redis (standard)</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Semantic Memory</span><span class="pill green">sqlite-vec (lite)</span><span class="pill teal">pgvector</span><span class="pill teal">Chroma</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Structured Store</span><span class="pill green">SQLite (lite)</span><span class="pill green">PostgreSQL</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Secrets Vault</span><span class="pill amber">HashiCorp Vault</span><span class="pill amber">AWS Secrets Mgr</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Skills Registry</span><span class="pill green">SkillHub (built-in)</span><span class="pill amber">Private Registry</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Observability</span><span class="pill blue">OpenTelemetry</span><span class="pill green">Prometheus</span><span class="pill green">Grafana</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Admin UI</span><span class="pill blue">React + Vite</span></div>
+        <div style="display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"><span style="min-width:160px;font-size:.82rem;font-weight:600">Agent Config</span><span class="pill amber">YAML</span><span class="pill amber">GitOps / ArgoCD</span></div>
+      </div>
+    </div>
+    <div>
+      <h3>Recommended Build Phases</h3>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <div class="card" style="border-left:3px solid var(--accent)">
+          <div class="card-title">Phase 1 — Foundation (Weeks 1-4)</div>
+          <div class="card-body">Watchdog binary, HTTP + Slack adapters, agent runner (process fork), SQLite (lite tier), JWT auth, YAML agent defs, Skills engine with built-in skills, CLI tooling.</div>
+        </div>
+        <div class="card" style="border-left:3px solid var(--accent3)">
+          <div class="card-title">Phase 2 — Security + Skills (Weeks 5-8)</div>
+          <div class="card-body">OPA RBAC, Vault secrets, per-skill permissions, SkillHub registry, audit log, multi-tenant isolation, PostgreSQL/Redis tier upgrade path.</div>
+        </div>
+        <div class="card" style="border-left:3px solid var(--accent4)">
+          <div class="card-title">Phase 3 — Scale (Weeks 9-12)</div>
+          <div class="card-body">Vector memory, scheduler engine (cron + DAG), multi-agent orchestration, OpenTelemetry, cost ledger, Kubernetes deploy mode, community skill marketplace.</div>
+        </div>
+        <div class="card" style="border-left:3px solid var(--accent5)">
+          <div class="card-title">Phase 4 — Platform (Weeks 13-16)</div>
+          <div class="card-body">Admin UI, GitOps workflow, full serverless mode, verified skill publisher program, human-in-the-loop, replay & debug, enterprise SSO/SAML.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>
+  <strong style="color:var(--text)">Agentix Platform</strong> — Serverless Agentic Infrastructure Design v2.0 &nbsp;·&nbsp;
+  Zero-idle compute · Skills-first · Secure-by-default · Tiered infra (SQLite to Enterprise) · Production-grade
+</footer>
+<script>
+function scrollTo(id) {
+  document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
