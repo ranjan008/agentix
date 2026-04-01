@@ -48,6 +48,16 @@ watchdog:
   # database_url: "postgresql://user:pass@localhost:5432/agentix"
   # redis_url: "redis://localhost:6379/0"
 
+  # Scheduler
+  scheduler:
+    tick_sec: 5
+    schedules_dir: "schedules"
+
+  # Event bus subscriptions (agent-to-agent event cascade)
+  # event_subscriptions:
+  #   - event: "order.created"
+  #     agent: "notification-agent"
+
   # Ingress channel adapters
   channels:
     - type: "http_webhook"

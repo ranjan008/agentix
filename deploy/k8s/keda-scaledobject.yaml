@@ -1,0 +1,47 @@
+---
+# KEDA ScaledObject — auto-scale the watchdog based on pending trigger queue depth.
+# Requires KEDA installed: https://keda.sh/docs/latest/deploy/
+#
+# This example uses a Redis List as the trigger queue.
+# When queue depth > 0, KEDA scales the watchdog from 0 → N replicas.
+# When queue drains, it scales back to minReplicaCount (1 for HA, 0 for true serverless).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: agentix-watchdog-scaler
+  namespace: agentix
+spec:
+  scaleTargetRef:
+    name: agentix-watchdog
+  minReplicaCount: 1      # set to 0 for true scale-to-zero (cold start ~2s)
+  maxReplicaCount: 20
+  pollingInterval: 5      # seconds between queue depth checks
+  cooldownPeriod: 60      # seconds to wait before scaling down
+  triggers:
+    - type: redis
+      metadata:
+        address: redis:6379
+        listName: agentix:trigger-queue
+        listLength: "5"   # scale up when queue depth > 5 per replica
+
+---
+# Alternative: scale on Prometheus metric (trigger processing latency)
+# Uncomment to use instead of Redis queue depth
+#
+# apiVersion: keda.sh/v1alpha1
+# kind: ScaledObject
+# metadata:
+#   name: agentix-watchdog-latency-scaler
+#   namespace: agentix
+# spec:
+#   scaleTargetRef:
+#     name: agentix-watchdog
+#   minReplicaCount: 1
+#   maxReplicaCount: 20
+#   triggers:
+#     - type: prometheus
+#       metadata:
+#         serverAddress: http://prometheus:9090
+#         metricName: agentix_trigger_queue_depth
+#         query: sum(agentix_trigger_queue_depth)
+#         threshold: "10"

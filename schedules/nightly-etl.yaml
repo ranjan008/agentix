@@ -1,0 +1,27 @@
+apiVersion: "agentix/v1"
+kind: "Pipeline"
+metadata:
+  name: "nightly-etl"
+  tenant_id: "default"
+spec:
+  trigger:
+    type: "cron"
+    expression: "0 2 * * *"
+  rbac:
+    run_as_role: "scheduler-service"
+  steps:
+    - id: "extract"
+      agent: "research-assistant"
+      depends_on: []
+    - id: "transform"
+      agent: "research-assistant"
+      depends_on: ["extract"]
+    - id: "load-db"
+      agent: "email-agent"
+      depends_on: ["transform"]
+    - id: "load-cache"
+      agent: "research-assistant"
+      depends_on: ["transform"]
+    - id: "notify"
+      agent: "email-agent"
+      depends_on: ["load-db", "load-cache"]

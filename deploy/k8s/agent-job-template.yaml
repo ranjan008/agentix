@@ -1,0 +1,81 @@
+---
+# Agent Job Template — each agent invocation runs as an ephemeral Kubernetes Job.
+# The watchdog creates a copy of this template per trigger (spawn_mode: container).
+# TTL controller auto-cleans up finished jobs after 300s.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: agentix-agent-TRIGGER_ID   # replaced at spawn time
+  namespace: agentix
+  labels:
+    app: agentix-agent
+    agentix.dev/trigger-id: "TRIGGER_ID"
+    agentix.dev/agent-id: "AGENT_ID"
+    agentix.dev/tenant-id: "TENANT_ID"
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0       # no retries — watchdog handles retry logic
+  template:
+    metadata:
+      labels:
+        app: agentix-agent
+        agentix.dev/agent-id: "AGENT_ID"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: agentix-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: agent
+          image: ghcr.io/agentix/agent-runtime:latest
+          imagePullPolicy: Always
+          command: ["python", "-m", "agentix.agent_runtime.main"]
+          env:
+            - name: AGENTIX_TRIGGER
+              value: "TRIGGER_JSON"   # injected by watchdog spawner
+            - name: AGENTIX_DB_PATH
+              value: "/data/agentix.db"
+            - name: AGENTIX_AGENTS_DIR
+              value: "/agents"
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentix-secrets
+                  key: anthropic-api-key
+            - name: OTEL_SERVICE_NAME
+              value: "agentix-agent"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: agentix-config
+                  key: otel-endpoint
+                  optional: true
+          volumeMounts:
+            - name: agents
+              mountPath: /agents
+              readOnly: true
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      volumes:
+        - name: agents
+          configMap:
+            name: agentix-agent-defs
+        - name: data
+          persistentVolumeClaim:
+            claimName: agentix-data-pvc
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agentix-agent
+  namespace: agentix
+automountServiceAccountToken: false  # agents don't need k8s API access

@@ -278,6 +278,169 @@ def trigger_list(db: str, limit: int):
 
 
 # ---------------------------------------------------------------------------
+# schedule
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def schedule():
+    """Scheduler management commands."""
+
+
+@schedule.command("list")
+@click.option("--db", default="data/agentix.db")
+def schedule_list(db: str):
+    """List all registered schedules."""
+    from agentix.scheduler.engine import Scheduler
+    sched = Scheduler(db_path=db)
+    rows = sched.list_schedules()
+    if not rows:
+        click.echo("No schedules registered.")
+        return
+    click.echo(f"{'ID':<22} {'NAME':<28} {'TYPE':<10} {'AGENT':<25} ENABLED")
+    click.echo("-" * 95)
+    for r in rows:
+        click.echo(f"{r['id']:<22} {(r['name'] or ''):<28} {r['type']:<10} {(r['agent_id'] or 'DAG'):<25} {'yes' if r['enabled'] else 'no'}")
+
+
+@schedule.command("add-cron")
+@click.argument("name")
+@click.argument("expression")
+@click.argument("agent_id")
+@click.option("--db", default="data/agentix.db")
+@click.option("--tenant", default="default")
+def schedule_add_cron(name: str, expression: str, agent_id: str, db: str, tenant: str):
+    """Register a cron schedule. EXPRESSION is a 5-field cron string."""
+    from agentix.scheduler.engine import Scheduler
+    sched = Scheduler(db_path=db)
+    sid = sched.add_cron(name, expression, agent_id, tenant_id=tenant)
+    click.echo(f"Cron schedule registered: {sid}")
+
+
+@schedule.command("load")
+@click.argument("schedules_dir", default="schedules")
+@click.option("--db", default="data/agentix.db")
+def schedule_load(schedules_dir: str, db: str):
+    """Load all schedule YAML files from a directory."""
+    from agentix.scheduler.engine import Scheduler
+    from agentix.scheduler.loader import load_schedules_dir
+    sched = Scheduler(db_path=db)
+    n = load_schedules_dir(sched, schedules_dir)
+    click.echo(f"Loaded {n} schedule(s) from {schedules_dir}")
+
+
+@schedule.command("enable")
+@click.argument("schedule_id")
+@click.option("--disable", is_flag=True, default=False)
+@click.option("--db", default="data/agentix.db")
+def schedule_enable(schedule_id: str, disable: bool, db: str):
+    """Enable or disable a schedule."""
+    from agentix.scheduler.engine import Scheduler
+    Scheduler(db_path=db).enable(schedule_id, not disable)
+    click.echo(f"Schedule {schedule_id} {'disabled' if disable else 'enabled'}.")
+
+
+# ---------------------------------------------------------------------------
+# cost
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def cost():
+    """Cost ledger commands."""
+
+
+@cost.command("summary")
+@click.option("--tenant", default=None)
+@click.option("--agent", default=None)
+@click.option("--db", default="data/agentix.db")
+def cost_summary(tenant: str | None, agent: str | None, db: str):
+    """Show cost and token usage summary."""
+    from agentix.observability.cost_ledger import CostLedger
+    ledger = CostLedger(db_path=db)
+    s = ledger.summary(tenant_id=tenant, agent_id=agent)
+    click.echo(f"LLM calls:       {s['calls']}")
+    click.echo(f"Input tokens:    {s['total_input_tokens']:,}")
+    click.echo(f"Output tokens:   {s['total_output_tokens']:,}")
+    click.echo(f"Tool calls:      {s['total_tool_calls']}")
+    click.echo(f"Total cost:      ${s['total_cost_usd']:.6f}")
+
+
+@cost.command("top")
+@click.option("--tenant", default=None)
+@click.option("--limit", default=10)
+@click.option("--db", default="data/agentix.db")
+def cost_top(tenant: str | None, limit: int, db: str):
+    """Show top agents by cost."""
+    from agentix.observability.cost_ledger import CostLedger
+    ledger = CostLedger(db_path=db)
+    rows = ledger.top_agents_by_cost(tenant_id=tenant, limit=limit)
+    if not rows:
+        click.echo("No cost data recorded yet.")
+        return
+    click.echo(f"{'AGENT':<35} {'TOTAL COST':>12}  {'TOTAL TOKENS':>14}")
+    click.echo("-" * 65)
+    for r in rows:
+        click.echo(f"{r['agent_id']:<35} ${r['total_cost']:>11.6f}  {r['total_tokens']:>14,}")
+
+
+@cost.command("set-quota")
+@click.argument("scope_type", metavar="SCOPE_TYPE")   # agent | tenant
+@click.argument("scope_id")
+@click.option("--period", default="monthly", help="daily | monthly | total")
+@click.option("--hard", default=None, type=float, help="Hard limit USD")
+@click.option("--soft", default=None, type=float, help="Soft limit (alert) USD")
+@click.option("--db", default="data/agentix.db")
+def cost_set_quota(scope_type: str, scope_id: str, period: str,
+                   hard: float | None, soft: float | None, db: str):
+    """Set a spending quota for an agent or tenant."""
+    from agentix.observability.cost_ledger import CostLedger
+    CostLedger(db_path=db).set_quota(scope_type, scope_id, period, hard, soft)
+    click.echo(f"Quota set: {scope_type}={scope_id} period={period} hard={hard} soft={soft}")
+
+
+# ---------------------------------------------------------------------------
+# marketplace
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def marketplace():
+    """SkillHub marketplace commands."""
+
+
+@marketplace.command("search")
+@click.argument("query", default="")
+@click.option("--tag", multiple=True, help="Filter by tag (repeatable)")
+@click.option("--verified-only", is_flag=True, default=False)
+def marketplace_search(query: str, tag: tuple, verified_only: bool):
+    """Search the SkillHub community catalog."""
+    from agentix.skills.marketplace import SkillMarketplace
+    mkt = SkillMarketplace()
+    results = mkt.search(query=query, tags=list(tag) or None, verified_only=verified_only)
+    if not results:
+        click.echo("No skills found.")
+        return
+    click.echo(f"{'NAME':<28} {'VERSION':<10} {'VERIFIED':<10} DESCRIPTION")
+    click.echo("-" * 90)
+    for s in results:
+        v = "✓" if s.get("verified") else " "
+        click.echo(f"{s['name']:<28} {s['version']:<10} {v:<10} {s['description'][:45]}")
+
+
+@marketplace.command("install")
+@click.argument("skill_name")
+@click.option("--db", default="data/agentix.db")
+def marketplace_install(skill_name: str, db: str):
+    """Install a skill from the SkillHub marketplace catalog."""
+    from agentix.skills.marketplace import SkillMarketplace
+    from agentix.skills.skillhub import SkillHub
+    from agentix.storage.state_store import StateStore
+    mkt = SkillMarketplace()
+    store = StateStore(db)
+    hub = SkillHub(store)
+    result = mkt.install(skill_name, hub, db_path=db)
+    click.echo(f"Installed from marketplace: {result['name']} v{result['version']} (verified={result['verified']})")
+
+
+# ---------------------------------------------------------------------------
 # token
 # ---------------------------------------------------------------------------
 

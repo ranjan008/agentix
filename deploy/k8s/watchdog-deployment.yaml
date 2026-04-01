@@ -1,0 +1,158 @@
+---
+# Watchdog Deployment — always-on, single replica (scale to 2 for HA)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentix-watchdog
+  namespace: agentix
+  labels:
+    app: agentix-watchdog
+    app.kubernetes.io/component: watchdog
+    app.kubernetes.io/part-of: agentix-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentix-watchdog
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: agentix-watchdog
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: agentix-watchdog
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: watchdog
+          image: ghcr.io/agentix/watchdog:latest
+          imagePullPolicy: Always
+          command: ["agentix", "dev", "start", "--config", "/config/watchdog.yaml"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: agentix-secrets
+                  key: anthropic-api-key
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentix-secrets
+                  key: jwt-secret
+            - name: AUDIT_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: agentix-secrets
+                  key: audit-hmac-secret
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agentix-secrets
+                  key: database-url
+                  optional: true
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agentix-secrets
+                  key: redis-url
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: agentix-config
+                  key: otel-endpoint
+                  optional: true
+            - name: OTEL_SERVICE_NAME
+              value: "agentix-watchdog"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: agents
+              mountPath: /agents
+              readOnly: true
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: agentix-watchdog-config
+        - name: agents
+          configMap:
+            name: agentix-agent-defs
+        - name: data
+          persistentVolumeClaim:
+            claimName: agentix-data-pvc
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agentix-watchdog
+  namespace: agentix
+
+---
+# RBAC: allow watchdog to create/watch Jobs (for container spawn mode)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agentix-watchdog
+  namespace: agentix
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agentix-watchdog
+  namespace: agentix
+subjects:
+  - kind: ServiceAccount
+    name: agentix-watchdog
+    namespace: agentix
+roleRef:
+  kind: Role
+  name: agentix-watchdog
+  apiGroup: rbac.authorization.k8s.io

@@ -52,8 +52,22 @@ class LLMClient:
             kwargs["tools"] = tools
 
         logger.debug("LLM call: model=%s messages=%d tools=%d", self.model_id, len(messages), len(tools or []))
+        import time as _time
+        t0 = _time.monotonic()
         response = self._client.messages.create(**kwargs)
-        logger.debug("LLM response: stop_reason=%s", response.stop_reason)
+        latency_ms = (_time.monotonic() - t0) * 1000
+        logger.debug("LLM response: stop_reason=%s latency=%.0fms", response.stop_reason, latency_ms)
+
+        # OTel instrumentation
+        try:
+            from agentix.observability.tracing import record_llm_call
+            usage = getattr(response, "usage", None)
+            in_tok = getattr(usage, "input_tokens", 0) if usage else 0
+            out_tok = getattr(usage, "output_tokens", 0) if usage else 0
+            record_llm_call(self.model_id, in_tok, out_tok, latency_ms)
+        except Exception:
+            pass
+
         return response
 
     @classmethod

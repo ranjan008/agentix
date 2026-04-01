@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentix
+  labels:
+    app.kubernetes.io/name: agentix
+    app.kubernetes.io/part-of: agentix-platform
