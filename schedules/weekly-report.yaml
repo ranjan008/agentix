@@ -1,0 +1,15 @@
+apiVersion: "agentix/v1"
+kind: "Schedule"
+metadata:
+  name: "weekly-report"
+  tenant_id: "default"
+spec:
+  type: "cron"
+  expression: "0 18 * * FRI"
+  timezone: "America/New_York"
+  agent: "research-assistant"
+  rbac:
+    run_as_role: "scheduler-service"
+  payload:
+    report_type: "weekly_summary"
+    text: "Generate a weekly summary report of platform activity."

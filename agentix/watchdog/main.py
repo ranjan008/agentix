@@ -21,6 +21,11 @@ from agentix.security.rbac import RBACEngine
 from agentix.security.audit import AuditLog
 from agentix.security.secrets import SecretsVault
 from agentix.storage.standard import build_store
+from agentix.scheduler.engine import Scheduler
+from agentix.scheduler.loader import load_schedules_dir
+from agentix.observability.cost_ledger import CostLedger
+from agentix.observability.tracing import record_trigger
+from agentix.orchestration.patterns import EventBus
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +60,21 @@ class Watchdog:
 
         self.rbac_gateway = RBACGateway(self.rbac, self.audit)
 
+        # Cost ledger
+        self.cost_ledger = CostLedger(db_path=self.db_path)
+
+        # Scheduler (cron + one-shot + DAG)
+        self.scheduler = Scheduler(
+            db_path=self.db_path,
+            tick_sec=self.cfg.get("scheduler", {}).get("tick_sec", 5.0),
+            on_trigger=self._handle_trigger,
+        )
+
+        # Event bus (in-process agent-to-agent cascade)
+        self.event_bus = EventBus(on_trigger=self._handle_trigger)
+        for sub in self.cfg.get("event_subscriptions", []):
+            self.event_bus.subscribe(sub["event"], sub["agent"])
+
         self.rate_limiter = RateLimiter(
             max_requests=self.cfg.get("rate_limit", {}).get("max_requests", 60),
             window_sec=self.cfg.get("rate_limit", {}).get("window_sec", 60),
@@ -81,12 +101,20 @@ class Watchdog:
         agent_spec = self.store.get_agent(agent_id)
         if not agent_spec:
             logger.warning("Unknown agent '%s' — trigger %s rejected", agent_id, trigger_id)
-            self.store.audit("trigger.rejected", trigger_id, agent_id, detail={"reason": "unknown_agent"})
+            self.audit.record(
+                "trigger.rejected", trigger_id, agent_id,
+                detail={"reason": "unknown_agent"},
+                tenant_id=envelope["caller"].get("tenant_id", "default"),
+            )
             return
 
         # RBAC gateway check
         if not self.rbac_gateway.check_trigger(envelope, agent_spec):
             return
+
+        # OTel root span
+        with record_trigger(envelope):
+            pass  # span context propagated via OTel context vars to child processes
 
         # Persist & audit
         self.store.create_trigger(envelope)
@@ -159,6 +187,15 @@ class Watchdog:
         for ch in self._channels:
             await ch.start()
 
+        # Load schedule YAML files
+        schedules_dir = self.cfg.get("scheduler", {}).get("schedules_dir", "schedules")
+        loaded = load_schedules_dir(self.scheduler, schedules_dir)
+        if loaded:
+            logger.info("Scheduler: loaded %d schedule(s) from %s", loaded, schedules_dir)
+
+        # Start scheduler as background task
+        scheduler_task = asyncio.create_task(self.scheduler.run(), name="agentix-scheduler")
+
         logger.info(
             "Watchdog ready — %d channel(s) active, max_concurrent_agents=%d",
             len(self._channels),
@@ -171,10 +208,12 @@ class Watchdog:
             loop.add_signal_handler(sig, self._stop_event.set)
 
         await self._stop_event.wait()
+        scheduler_task.cancel()
         await self.stop()
 
     async def stop(self) -> None:
         logger.info("Watchdog shutting down…")
+        await self.scheduler.stop()
         for ch in self._channels:
             await ch.stop()
         logger.info("Watchdog stopped. Active agents at shutdown: %d", self.spawner.active_count)
