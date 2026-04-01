@@ -304,5 +304,143 @@ def token_generate(identity: str, role: tuple, tenant: str, ttl: int, secret: st
     click.echo(tok)
 
 
+# ---------------------------------------------------------------------------
+# audit
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def audit():
+    """Audit log commands."""
+
+
+@audit.command("list")
+@click.option("--db", default="data/agentix.db", help="Database path")
+@click.option("--tenant", default=None, help="Filter by tenant")
+@click.option("--agent", default=None, help="Filter by agent_id")
+@click.option("--event", default=None, help="Filter by event_type (glob supported)")
+@click.option("--limit", default=20, help="Max entries to show")
+def audit_list(db: str, tenant: str | None, agent: str | None, event: str | None, limit: int):
+    """List audit log entries."""
+    from agentix.security.audit import AuditLog
+    import os
+    al = AuditLog(db, hmac_secret=os.environ.get("AUDIT_HMAC_SECRET", ""))
+    entries = al.query(tenant_id=tenant, agent_id=agent, event_type=event, limit=limit)
+    if not entries:
+        click.echo("No audit entries found.")
+        return
+    click.echo(f"{'SEQ':<6} {'EVENT':<25} {'AGENT':<22} {'ACTOR':<20} TIMESTAMP")
+    click.echo("-" * 90)
+    for e in entries:
+        import datetime
+        ts = datetime.datetime.fromtimestamp(e["ts"]).strftime("%Y-%m-%d %H:%M:%S")
+        click.echo(
+            f"{e['seq']:<6} {(e['event_type'] or ''):<25} "
+            f"{(e['agent_id'] or ''):<22} {(e['actor'] or ''):<20} {ts}"
+        )
+
+
+@audit.command("verify")
+@click.option("--db", default="data/agentix.db", help="Database path")
+@click.option("--tenant", default=None, help="Verify only this tenant's chain slice")
+def audit_verify(db: str, tenant: str | None):
+    """Verify the integrity of the audit log chain."""
+    from agentix.security.audit import AuditLog
+    import os
+    al = AuditLog(db, hmac_secret=os.environ.get("AUDIT_HMAC_SECRET", ""))
+    ok, msg = al.verify_chain(tenant_id=tenant)
+    symbol = "✓" if ok else "✗"
+    click.echo(f"{symbol} {msg}")
+    if not ok:
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# secret
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def secret():
+    """Secrets vault commands."""
+
+
+@secret.command("set")
+@click.argument("key")
+@click.argument("value")
+@click.option("--backend", default="file", help="Backend: env | file | vault | aws_sm")
+@click.option("--path", default="data/secrets.json", help="File backend path")
+def secret_set(key: str, value: str, backend: str, path: str):
+    """Store a secret in the vault."""
+    from agentix.security.secrets import SecretsVault
+    vault = SecretsVault.from_config({"backend": backend, "path": path})
+    vault.set(key, value)
+    click.echo(f"Secret '{key}' stored ({backend} backend).")
+
+
+@secret.command("get")
+@click.argument("key")
+@click.option("--backend", default="file", help="Backend: env | file | vault | aws_sm")
+@click.option("--path", default="data/secrets.json", help="File backend path")
+def secret_get(key: str, backend: str, path: str):
+    """Retrieve a secret from the vault."""
+    from agentix.security.secrets import SecretsVault, SecretNotFoundError
+    vault = SecretsVault.from_config({"backend": backend, "path": path})
+    try:
+        click.echo(vault.get(key))
+    except SecretNotFoundError as e:
+        click.echo(str(e), err=True)
+        sys.exit(1)
+
+
+@secret.command("list")
+@click.option("--backend", default="file", help="Backend: env | file | vault | aws_sm")
+@click.option("--path", default="data/secrets.json", help="File backend path")
+def secret_list(backend: str, path: str):
+    """List secret keys in the vault."""
+    from agentix.security.secrets import SecretsVault
+    vault = SecretsVault.from_config({"backend": backend, "path": path})
+    for k in vault.list_keys():
+        click.echo(k)
+
+
+# ---------------------------------------------------------------------------
+# skillhub
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def hub():
+    """SkillHub management commands."""
+
+
+@hub.command("install")
+@click.argument("source")
+@click.option("--db", default="data/agentix.db", help="Database path")
+def hub_install(source: str, db: str):
+    """Install a skill from a YAML file or Git URL."""
+    from agentix.skills.skillhub import SkillHub
+    from agentix.storage.state_store import StateStore
+    store = StateStore(db)
+    hub = SkillHub(store)
+    if source.startswith("git@") or source.startswith("https://") and source.endswith(".git"):
+        record = hub.install_from_git(source)
+    else:
+        record = hub.install_from_yaml(source)
+    click.echo(f"Installed: {record['name']} v{record['version']} ({record['source']})")
+
+
+@hub.command("verify")
+@click.argument("skill_name")
+@click.option("--db", default="data/agentix.db", help="Database path")
+def hub_verify(skill_name: str, db: str):
+    """Verify integrity of an installed skill."""
+    from agentix.skills.skillhub import SkillHub
+    from agentix.storage.state_store import StateStore
+    store = StateStore(db)
+    hub = SkillHub(store)
+    ok = hub.verify(skill_name)
+    click.echo(f"{'✓ Integrity OK' if ok else '✗ Integrity FAILED'}: {skill_name}")
+    if not ok:
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     cli()

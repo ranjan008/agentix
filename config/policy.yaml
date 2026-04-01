@@ -1,0 +1,34 @@
+# Agentix RBAC Policy — custom rules (evaluated on top of built-in role permissions)
+#
+# Rules are evaluated in order:
+#   1. deny rules always win
+#   2. allow rules supplement the built-in role matrix
+#
+# Supported glob patterns in all list fields (e.g. "acme-*", "support-*")
+#
+# Built-in roles and their default permissions:
+#   end-user       → trigger:invoke (own scope), agent:list
+#   operator       → + skill:activate, tool:call, audit:read
+#   agent-author   → + agent:register, skill:install, secret:read
+#   tenant-admin   → + tenant:manage
+#   platform-admin → all permissions
+
+rules:
+  # Example: deny all triggers from the 'guest' role
+  - effect: "deny"
+    roles: ["guest"]
+    actions: ["trigger:invoke"]
+    agent_ids: ["*"]
+    tenant_ids: ["*"]
+
+  # Example: allow a service account to trigger only the report-generator agent
+  # - effect: "allow"
+  #   roles: ["reporting-service"]
+  #   actions: ["trigger:invoke"]
+  #   agent_ids: ["report-generator"]
+  #   tenant_ids: ["acme-corp"]
+
+  # Example: deny all tool calls from end-user role
+  # - effect: "deny"
+  #   roles: ["end-user"]
+  #   actions: ["tool:call"]

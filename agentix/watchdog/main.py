@@ -16,7 +16,11 @@ from agentix.watchdog.auth import RateLimiter
 from agentix.watchdog.channels.http_webhook import HttpWebhookChannel
 from agentix.watchdog.channels.slack_channel import SlackChannel
 from agentix.watchdog.config import load_config
-from agentix.storage.state_store import StateStore
+from agentix.watchdog.rbac_gateway import RBACGateway
+from agentix.security.rbac import RBACEngine
+from agentix.security.audit import AuditLog
+from agentix.security.secrets import SecretsVault
+from agentix.storage.standard import build_store
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +33,28 @@ class Watchdog:
     def __init__(self, config_path: str = "config/watchdog.yaml") -> None:
         self.cfg = load_config(config_path)
         self.db_path = self.cfg.get("db_path", "data/agentix.db")
-        self.store = StateStore(self.db_path)
+
+        # Storage (Lite: SQLite, Standard: PostgreSQL)
+        self.store = build_store(self.cfg)
+
+        # Audit log (HMAC-chained)
+        audit_secret = os.environ.get("AUDIT_HMAC_SECRET", "")
+        self.audit = AuditLog(db_path=self.db_path, hmac_secret=audit_secret)
+
+        # Secrets vault
+        secrets_cfg = self.cfg.get("secrets", {"backend": "env"})
+        self.vault = SecretsVault.from_config(secrets_cfg)
+
+        # RBAC engine
+        security = self.cfg.get("security", {})
+        policy_path = security.get("policy_file", "config/policy.yaml")
+        if security.get("enforce_rbac", False):
+            self.rbac = RBACEngine.from_yaml(policy_path)
+        else:
+            self.rbac = RBACEngine.permissive()
+
+        self.rbac_gateway = RBACGateway(self.rbac, self.audit)
+
         self.rate_limiter = RateLimiter(
             max_requests=self.cfg.get("rate_limit", {}).get("max_requests", 60),
             window_sec=self.cfg.get("rate_limit", {}).get("window_sec", 60),
@@ -59,9 +84,17 @@ class Watchdog:
             self.store.audit("trigger.rejected", trigger_id, agent_id, detail={"reason": "unknown_agent"})
             return
 
+        # RBAC gateway check
+        if not self.rbac_gateway.check_trigger(envelope, agent_spec):
+            return
+
         # Persist & audit
         self.store.create_trigger(envelope)
-        self.store.audit("trigger.received", trigger_id, agent_id, envelope["caller"]["identity_id"])
+        self.audit.record(
+            "trigger.received", trigger_id, agent_id,
+            envelope["caller"]["identity_id"],
+            tenant_id=envelope["caller"].get("tenant_id", "default"),
+        )
 
         # Spawn
         self.store.update_trigger_status(trigger_id, "running")
@@ -70,9 +103,9 @@ class Watchdog:
     def _on_agent_complete(self, trigger_id: str, success: bool, error: str | None) -> None:
         status = "done" if success else "failed"
         self.store.update_trigger_status(trigger_id, status, error)
-        self.store.audit(
+        self.audit.record(
             f"agent.{status}",
-            trigger_id,
+            trigger_id=trigger_id,
             detail={"error": error} if error else {},
         )
 
