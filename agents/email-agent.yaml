@@ -1,0 +1,38 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+metadata:
+  name: "email-agent"
+  version: "1.0.0"
+  team: "platform"
+spec:
+  model:
+    provider: "anthropic"
+    model_id: "claude-sonnet-4-6"
+    temperature: 0.2
+    max_tokens: 2048
+
+  skills:
+    - "email-composer"
+
+  tools:
+    - "email_compose"
+    - "email_send"
+
+  memory:
+    short_term: "sqlite"
+    scope: "user"
+    max_history_turns: 6
+    ttl_sec: 1800
+
+  execution:
+    timeout_sec: 60
+    max_tool_calls: 5
+
+  retry:
+    max_attempts: 2
+    backoff: "exponential"
+
+  triggers:
+    - channel: "http_webhook"
+    - channel: "slack"
+      filter: "channel == '#email-drafts'"

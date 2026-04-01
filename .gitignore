@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# Agentix runtime data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
