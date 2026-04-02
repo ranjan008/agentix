@@ -13,10 +13,10 @@ from pathlib import Path
 
 from agentix.watchdog.agent_spawner import AgentSpawner
 from agentix.watchdog.auth import RateLimiter
-from agentix.watchdog.channels.http_webhook import HttpWebhookChannel
-from agentix.watchdog.channels.slack_channel import SlackChannel
+from agentix.watchdog.channels.registry import ChannelRegistry
 from agentix.watchdog.config import load_config
 from agentix.watchdog.rbac_gateway import RBACGateway
+from agentix.watchdog.trigger_normalizer import TriggerEnvelope
 from agentix.security.rbac import RBACEngine
 from agentix.security.audit import AuditLog
 from agentix.security.secrets import SecretsVault
@@ -85,15 +85,18 @@ class Watchdog:
             db_path=self.db_path,
             on_complete=self._on_agent_complete,
         )
-        self._channels: list = []
+        self._channel_registry: ChannelRegistry | None = None
         self._stop_event = asyncio.Event()
 
     # ------------------------------------------------------------------
     # Trigger pipeline
     # ------------------------------------------------------------------
 
-    async def _handle_trigger(self, envelope: dict) -> None:
+    async def _handle_trigger(self, envelope) -> None:
         """Validate agent exists, persist trigger, spawn agent."""
+        # Accept both TriggerEnvelope dataclass and plain dicts
+        if isinstance(envelope, TriggerEnvelope):
+            envelope = envelope.to_dict()
         agent_id = envelope["agent_id"]
         trigger_id = envelope["id"]
 
@@ -138,54 +141,18 @@ class Watchdog:
         )
 
     # ------------------------------------------------------------------
-    # Channel setup
-    # ------------------------------------------------------------------
-
-    def _build_channels(self) -> None:
-        security = self.cfg.get("security", {})
-        jwt_secret = os.environ.get(
-            security.get("jwt_secret_env", "JWT_SECRET"), ""
-        )
-        enforce_rbac = security.get("enforce_rbac", False)
-
-        for ch_cfg in self.cfg.get("channels", []):
-            ch_type = ch_cfg.get("type", "")
-
-            if ch_type == "http_webhook":
-                channel = HttpWebhookChannel(
-                    port=ch_cfg.get("port", 8080),
-                    path=ch_cfg.get("path", "/trigger"),
-                    jwt_secret=jwt_secret,
-                    enforce_auth=enforce_rbac,
-                    hmac_secret=ch_cfg.get("hmac_secret", ""),
-                    on_trigger=self._handle_trigger,
-                    rate_limiter=self.rate_limiter,
-                )
-                self._channels.append(channel)
-
-            elif ch_type == "slack":
-                channel = SlackChannel(
-                    app_token=ch_cfg.get("app_token", ""),
-                    bot_token=ch_cfg.get("bot_token", ""),
-                    signing_secret=ch_cfg.get("signing_secret", ""),
-                    default_agent_id=ch_cfg.get("default_agent_id", ""),
-                    on_trigger=self._handle_trigger,
-                )
-                self._channels.append(channel)
-
-            else:
-                logger.warning("Unknown channel type '%s' — skipping", ch_type)
-
-    # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     async def start(self) -> None:
         logger.info("Agentix Watchdog starting (tier=%s)", self.cfg.get("infra_tier", "lite"))
-        self._build_channels()
 
-        for ch in self._channels:
-            await ch.start()
+        # Build aiohttp app for channels that need HTTP routes
+        from aiohttp import web
+        app = web.Application()
+
+        self._channel_registry = ChannelRegistry(self.cfg, self._handle_trigger, app)
+        await self._channel_registry.start_all()
 
         # Load schedule YAML files
         schedules_dir = self.cfg.get("scheduler", {}).get("schedules_dir", "schedules")
@@ -196,11 +163,7 @@ class Watchdog:
         # Start scheduler as background task
         scheduler_task = asyncio.create_task(self.scheduler.run(), name="agentix-scheduler")
 
-        logger.info(
-            "Watchdog ready — %d channel(s) active, max_concurrent_agents=%d",
-            len(self._channels),
-            self.cfg.get("max_concurrent_agents", 10),
-        )
+        logger.info("Watchdog ready — all configured channels active")
 
         # Wait for shutdown signal
         loop = asyncio.get_running_loop()
@@ -214,8 +177,8 @@ class Watchdog:
     async def stop(self) -> None:
         logger.info("Watchdog shutting down…")
         await self.scheduler.stop()
-        for ch in self._channels:
-            await ch.stop()
+        if self._channel_registry:
+            await self._channel_registry.stop_all()
         logger.info("Watchdog stopped. Active agents at shutdown: %d", self.spawner.active_count)
 
 

@@ -1,0 +1,135 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agentix.fullname" . }}-watchdog
+  labels:
+    {{- include "agentix.labels" . | nindent 4 }}
+    component: watchdog
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentix.selectorLabels" . | nindent 6 }}
+      component: watchdog
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "agentix.selectorLabels" . | nindent 8 }}
+        component: watchdog
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "agentix.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: watchdog
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.global.imageRegistry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "agentix.watchdog.main", "/config/watchdog.yaml"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.watchdog.port }}
+              protocol: TCP
+          env:
+            - name: AGENTIX_INFRA_TIER
+              value: {{ .Values.infraTier | quote }}
+            {{- if .Values.existingSecrets.anthropicApiKey }}
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecrets.anthropicApiKey }}
+                  key: ANTHROPIC_API_KEY
+            {{- end }}
+            {{- if .Values.existingSecrets.jwtSecret }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecrets.jwtSecret }}
+                  key: JWT_SECRET
+            {{- end }}
+            {{- if .Values.existingSecrets.auditHmacSecret }}
+            - name: AUDIT_HMAC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecrets.auditHmacSecret }}
+                  key: AUDIT_HMAC_SECRET
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.watchdog.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.watchdog.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.watchdog.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "agentix.fullname" . }}-config
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "agentix.fullname" . }}-data
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- if .Values.adminApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "agentix.fullname" . }}-admin
+  labels:
+    {{- include "agentix.labels" . | nindent 4 }}
+    component: admin-api
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentix.selectorLabels" . | nindent 6 }}
+      component: admin-api
+  template:
+    metadata:
+      labels:
+        {{- include "agentix.selectorLabels" . | nindent 8 }}
+        component: admin-api
+    spec:
+      serviceAccountName: {{ include "agentix.serviceAccountName" . }}
+      containers:
+        - name: admin-api
+          image: "{{ .Values.global.imageRegistry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uvicorn", "agentix.api.app:app", "--host", "0.0.0.0", "--port", "8090"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.adminApi.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.adminApi.resources | nindent 12 }}
+{{- end }}

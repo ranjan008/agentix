@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agentix.fullname" . }}-watchdog
+  labels:
+    {{- include "agentix.labels" . | nindent 4 }}
+    component: watchdog
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.watchdogPort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "agentix.selectorLabels" . | nindent 4 }}
+    component: watchdog
+---
+{{- if .Values.adminApi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agentix.fullname" . }}-admin
+  labels:
+    {{- include "agentix.labels" . | nindent 4 }}
+    component: admin-api
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.adminPort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "agentix.selectorLabels" . | nindent 4 }}
+    component: admin-api
+{{- end }}

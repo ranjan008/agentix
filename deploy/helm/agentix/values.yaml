@@ -1,0 +1,133 @@
+# Agentix Helm Chart — default values
+# Override with: helm install agentix ./deploy/helm/agentix -f my-values.yaml
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+image:
+  repository: ghcr.io/ranjan008/agentix
+  tag: "4.0.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# Infrastructure tier: lite | standard | enterprise
+infraTier: standard
+
+watchdog:
+  port: 8080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+adminApi:
+  enabled: true
+  port: 8090
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+service:
+  type: ClusterIP
+  watchdogPort: 8080
+  adminPort: 8090
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: agentix.example.com
+      paths:
+        - path: /trigger
+          service: watchdog
+          port: 8080
+        - path: /api
+          service: admin
+          port: 8090
+        - path: /ui
+          service: admin
+          port: 8090
+  tls: []
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# PostgreSQL (standard/enterprise tier)
+postgresql:
+  enabled: false
+  auth:
+    username: agentix
+    database: agentix
+    existingSecret: agentix-db-secret
+
+# Redis (standard/enterprise tier)
+redis:
+  enabled: false
+  auth:
+    existingSecret: agentix-redis-secret
+    existingSecretPasswordKey: password
+
+# Secrets — reference existing k8s secrets
+existingSecrets:
+  anthropicApiKey: ""        # secret name containing ANTHROPIC_API_KEY
+  jwtSecret: ""              # secret name containing JWT_SECRET
+  auditHmacSecret: ""        # secret name containing AUDIT_HMAC_SECRET
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: [ALL]
+
+# Config volume — mount watchdog.yaml from a ConfigMap
+config:
+  create: true
+  data: {}   # Override with your watchdog.yaml content
+
+# Persistent volume for SQLite (lite tier)
+persistence:
+  enabled: false
+  storageClass: ""
+  size: 1Gi
+  accessMode: ReadWriteOnce
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

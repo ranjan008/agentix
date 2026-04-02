@@ -1,0 +1,16 @@
+{{- if .Values.config.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "agentix.fullname" . }}-config
+  labels:
+    {{- include "agentix.labels" . | nindent 4 }}
+data:
+  watchdog.yaml: |
+    infra_tier: {{ .Values.infraTier }}
+    max_concurrent_agents: 10
+    shutdown_timeout_sec: 30
+    {{- with .Values.config.data }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

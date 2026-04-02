@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agentix
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Slack notification on sync events
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: agentix-deploys
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: agentix-deploys
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ranjan008/agentix.git
+    targetRevision: HEAD
+    path: deploy/helm/agentix
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-production.yaml
+      parameters:
+        - name: image.tag
+          value: "4.0.0"    # overridden by CI pipeline
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: agentix
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 5

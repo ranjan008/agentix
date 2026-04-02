@@ -1,0 +1,16 @@
+apiVersion: v2
+name: agentix
+description: Agentix — serverless agentic platform
+type: application
+version: 4.0.0
+appVersion: "4.0.0"
+keywords:
+  - ai
+  - agents
+  - llm
+  - serverless
+home: https://github.com/ranjan008/agentix
+sources:
+  - https://github.com/ranjan008/agentix
+maintainers:
+  - name: Agentix Team

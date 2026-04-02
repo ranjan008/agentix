@@ -14,12 +14,13 @@ import sys
 from pathlib import Path
 
 from agentix.agent_runtime.context_builder import build_messages, build_system_prompt, persist_turn
-from agentix.agent_runtime.llm_client import LLMClient
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec
-from agentix.agent_runtime.output_handler import extract_text, route_output
+from agentix.agent_runtime.output_handler import route_output
 from agentix.agent_runtime.tool_executor import ToolExecutor
+from agentix.llm.router import build_router
 from agentix.skills.engine import SkillEngine
 from agentix.storage.state_store import StateStore
+from agentix.watchdog.config import load_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -63,8 +64,13 @@ def run(envelope: dict) -> None:
     # Register skill-provided tools
     skill_engine.register_skill_tools(skill_names, executor)
 
-    # --- Build LLM client ---
-    llm = LLMClient.from_spec(agent_spec)
+    # --- Build LLM router ---
+    config_path = os.environ.get("AGENTIX_CONFIG", "config/watchdog.yaml")
+    try:
+        cfg = load_config(config_path)
+    except Exception:
+        cfg = {}
+    llm = build_router(cfg)
 
     # --- Build context ---
     system_prompt = build_system_prompt(agent_spec, skill_instructions)
@@ -74,62 +80,65 @@ def run(envelope: dict) -> None:
     tool_names = agent_spec["spec"].get("tools", [])
     tool_schemas = executor.get_tool_schemas(tool_names) + skill_tools
 
+    # LLM tags for provider routing (from agent spec)
+    agent_tags = agent_spec["spec"].get("tags", [])
+
     # --- Agentic loop ---
     store.audit("agent.started", envelope["id"], agent_id, envelope["caller"]["identity_id"])
 
     final_text = ""
     iterations = 0
 
-    while iterations < MAX_TOOL_ITERATIONS:
-        iterations += 1
-        response = llm.complete(system_prompt, messages, tools=tool_schemas or None)
+    import asyncio as _asyncio
 
-        if response.stop_reason == "end_turn":
-            final_text = extract_text(response)
+    async def _agentic_loop():
+        nonlocal final_text, iterations, messages
+
+        while iterations < MAX_TOOL_ITERATIONS:
+            iterations += 1
+            response = await llm.complete(
+                messages=messages,
+                system=system_prompt,
+                tools=tool_schemas or None,
+                tags=agent_tags,
+            )
+
+            if response.stop_reason in ("end_turn", "stop"):
+                final_text = response.content
+                break
+
+            if response.stop_reason == "tool_use" and response.tool_calls:
+                # Append assistant message
+                messages.append({"role": "assistant", "content": response.content or ""})
+
+                # Execute each tool call
+                tool_results = []
+                for tc in response.tool_calls:
+                    try:
+                        result = executor.execute(tc.name, tc.input)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tc.id,
+                            "content": json.dumps(result) if not isinstance(result, str) else result,
+                        })
+                        store.audit("tool.called", envelope["id"], agent_id, detail={"tool": tc.name})
+                    except Exception as exc:
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tc.id,
+                            "content": f"Error: {exc}",
+                            "is_error": True,
+                        })
+                        store.audit("tool.error", envelope["id"], agent_id, detail={"tool": tc.name, "error": str(exc)})
+
+                messages.append({"role": "user", "content": tool_results})
+                continue
+
+            # Any other stop reason
+            final_text = response.content
             break
 
-        if response.stop_reason == "tool_use":
-            # Append assistant message with tool_use blocks
-            messages.append({"role": "assistant", "content": response.content})
-
-            # Execute each tool call
-            tool_results = []
-            for block in response.content:
-                if block.type != "tool_use":
-                    continue
-                try:
-                    result = executor.execute(block.name, block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": json.dumps(result) if not isinstance(result, str) else result,
-                    })
-                    store.audit(
-                        "tool.called",
-                        envelope["id"],
-                        agent_id,
-                        detail={"tool": block.name},
-                    )
-                except Exception as exc:
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": f"Error: {exc}",
-                        "is_error": True,
-                    })
-                    store.audit(
-                        "tool.error",
-                        envelope["id"],
-                        agent_id,
-                        detail={"tool": block.name, "error": str(exc)},
-                    )
-
-            messages.append({"role": "user", "content": tool_results})
-            continue
-
-        # Any other stop reason — extract what we have
-        final_text = extract_text(response)
-        break
+    _asyncio.run(_agentic_loop())
 
     if iterations >= MAX_TOOL_ITERATIONS:
         logger.warning("Max tool iterations reached for agent=%s", agent_id)
@@ -141,7 +150,7 @@ def run(envelope: dict) -> None:
     persist_turn(
         agent_id,
         scope,
-        build_messages(envelope, agent_spec, store),  # original messages (pre-tool-loop)
+        build_messages(envelope, agent_spec, store),
         final_text,
         store,
         ttl_sec=agent_spec["spec"].get("memory", {}).get("ttl_sec", 3600),

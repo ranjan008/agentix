@@ -1,0 +1,57 @@
+---
+# Agent promotion workflow — ArgoCD ApplicationSet
+# Promotes agent YAML files through dev → staging → production environments
+# via git-based GitOps (each environment is a separate branch/overlay).
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: agentix-agents
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          # Environment generator
+          - list:
+              elements:
+                - env: dev
+                  branch: main
+                  namespace: agentix-dev
+                  autoSync: "true"
+                - env: staging
+                  branch: release
+                  namespace: agentix-staging
+                  autoSync: "true"
+                - env: production
+                  branch: production
+                  namespace: agentix
+                  autoSync: "false"   # production requires manual sync
+          # Agent directory generator
+          - git:
+              repoURL: https://github.com/ranjan008/agentix.git
+              revision: "{{branch}}"
+              directories:
+                - path: agents/*
+  template:
+    metadata:
+      name: "agentix-agent-{{env}}-{{path.basenameNormalized}}"
+      namespace: argocd
+      annotations:
+        agentix/agent-name: "{{path.basenameNormalized}}"
+        agentix/environment: "{{env}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/ranjan008/agentix.git
+        targetRevision: "{{branch}}"
+        path: "{{path}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: "{{autoSync}}" == "true"
+        syncOptions:
+          - CreateNamespace=true
