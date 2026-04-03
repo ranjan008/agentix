@@ -67,13 +67,31 @@ CREATE TABLE IF NOT EXISTS skills (
     spec        TEXT NOT NULL,   -- JSON
     installed_at REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS tenants (
+    tenant_id   TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    tier        TEXT NOT NULL DEFAULT 'standard',
+    metadata    TEXT NOT NULL DEFAULT '{}',
+    created_at  REAL NOT NULL,
+    updated_at  REAL NOT NULL,
+    deleted     INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
 class StateStore:
     def __init__(self, db_path: str | Path = "data/agentix.db") -> None:
+        self._in_memory = str(db_path) == ":memory:"
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        if not self._in_memory:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # For :memory: databases keep one persistent connection so all
+        # operations share the same in-process SQLite instance.
+        self._memory_conn: sqlite3.Connection | None = None
+        if self._in_memory:
+            self._memory_conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self._memory_conn.row_factory = sqlite3.Row
         self._init_db()
 
     # ------------------------------------------------------------------
@@ -81,13 +99,17 @@ class StateStore:
     # ------------------------------------------------------------------
 
     def _connect(self) -> sqlite3.Connection:
+        if self._in_memory:
+            return self._memory_conn  # type: ignore[return-value]
         conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         conn.row_factory = sqlite3.Row
         return conn
 
     def _init_db(self) -> None:
-        with self._connect() as conn:
-            conn.executescript(_SCHEMA)
+        conn = self._connect()
+        conn.executescript(_SCHEMA)
+        if not self._in_memory:
+            conn.close()
 
     @contextmanager
     def _cursor(self):
@@ -97,7 +119,8 @@ class StateStore:
             yield cur
             conn.commit()
         finally:
-            conn.close()
+            if not self._in_memory:
+                conn.close()
 
     # ------------------------------------------------------------------
     # Agent registry
@@ -123,8 +146,33 @@ class StateStore:
 
     def list_agents(self) -> list[dict]:
         with self._cursor() as cur:
-            rows = cur.execute("SELECT id, name, version FROM agents ORDER BY name").fetchall()
-        return [dict(r) for r in rows]
+            rows = cur.execute("SELECT id, name, version, spec FROM agents ORDER BY name").fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            try:
+                full = json.loads(d.pop("spec", "{}"))
+                d["spec"] = full.get("spec", {})
+                d["metadata"] = full.get("metadata", {})
+            except Exception:
+                pass
+            result.append(d)
+        return result
+
+    def delete_agent(self, agent_id: str) -> None:
+        with self._cursor() as cur:
+            cur.execute("DELETE FROM agents WHERE id=?", (agent_id,))
+
+    def get_agent_state(self, agent_id: str) -> dict:
+        """Return all non-expired state keys for an agent as a flat dict."""
+        now = time.time()
+        with self._cursor() as cur:
+            rows = cur.execute(
+                """SELECT scope, key, value FROM agent_state
+                   WHERE agent_id=? AND (ttl_until IS NULL OR ttl_until > ?)""",
+                (agent_id, now),
+            ).fetchall()
+        return {f"{r['scope']}:{r['key']}": json.loads(r["value"]) for r in rows}
 
     # ------------------------------------------------------------------
     # Trigger tracking
@@ -171,6 +219,69 @@ class StateStore:
             ).fetchone()
         return dict(row) if row else None
 
+    def list_triggers(
+        self,
+        agent_id: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if agent_id:
+            clauses.append("agent_id=?")
+            params.append(agent_id)
+        if status:
+            clauses.append("status=?")
+            params.append(status)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        params += [limit, offset]
+        with self._cursor() as cur:
+            rows = cur.execute(
+                f"SELECT * FROM triggers {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                params,
+            ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            # Expand stored payload so callers see channel/caller fields
+            try:
+                envelope = json.loads(d.get("payload", "{}"))
+                d.update({k: v for k, v in envelope.items() if k not in d})
+            except Exception:
+                pass
+            result.append(d)
+        return result
+
+    def trigger_stats(self, hours: int = 24) -> dict:
+        since = time.time() - hours * 3600
+        with self._cursor() as cur:
+            rows = cur.execute(
+                "SELECT status, COUNT(*) as cnt FROM triggers WHERE created_at >= ? GROUP BY status",
+                (since,),
+            ).fetchall()
+        stats: dict[str, int] = {}
+        for r in rows:
+            stats[r["status"]] = r["cnt"]
+        return {
+            "total": sum(stats.values()),
+            "running": stats.get("running", 0),
+            "done": stats.get("done", 0),
+            "failed": stats.get("failed", 0),
+            "pending": stats.get("pending", 0),
+        }
+
+    def agent_execution_stats(self) -> list[dict]:
+        with self._cursor() as cur:
+            rows = cur.execute(
+                """SELECT agent_id,
+                          COUNT(*) as total,
+                          SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) as succeeded,
+                          SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) as failed
+                   FROM triggers GROUP BY agent_id ORDER BY total DESC""",
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     # ------------------------------------------------------------------
     # Agent key-value state
     # ------------------------------------------------------------------
@@ -204,6 +315,29 @@ class StateStore:
     # ------------------------------------------------------------------
     # Audit log
     # ------------------------------------------------------------------
+
+    def list_audit(
+        self,
+        tenant_id: str | None = None,
+        action: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[dict]:
+        # audit_log table has no tenant_id column in the Lite schema;
+        # filter by action only if supplied, ignore tenant_id filter silently.
+        clauses: list[str] = []
+        params: list[Any] = []
+        if action:
+            clauses.append("event_type LIKE ?")
+            params.append(f"%{action}%")
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        params += [limit, offset]
+        with self._cursor() as cur:
+            rows = cur.execute(
+                f"SELECT *, ts as timestamp, actor as identity_id FROM audit_log {where} ORDER BY seq DESC LIMIT ? OFFSET ?",
+                params,
+            ).fetchall()
+        return [dict(r) for r in rows]
 
     def audit(
         self,
@@ -250,3 +384,49 @@ class StateStore:
                 "SELECT name, version, source FROM skills ORDER BY name"
             ).fetchall()
         return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Tenant management
+    # ------------------------------------------------------------------
+
+    def upsert_tenant(self, tenant_id: str, name: str, tier: str = "standard", metadata: dict | None = None) -> None:
+        now = time.time()
+        with self._cursor() as cur:
+            cur.execute(
+                """INSERT INTO tenants (tenant_id, name, tier, metadata, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(tenant_id) DO UPDATE SET
+                     name=excluded.name, tier=excluded.tier,
+                     metadata=excluded.metadata, updated_at=excluded.updated_at""",
+                (tenant_id, name, tier, json.dumps(metadata or {}), now, now),
+            )
+
+    def get_tenant(self, tenant_id: str) -> dict | None:
+        with self._cursor() as cur:
+            row = cur.execute(
+                "SELECT * FROM tenants WHERE tenant_id=? AND deleted=0", (tenant_id,)
+            ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["metadata"] = json.loads(d.get("metadata", "{}"))
+        return d
+
+    def list_tenants(self) -> list[dict]:
+        with self._cursor() as cur:
+            rows = cur.execute(
+                "SELECT tenant_id, name, tier, metadata, created_at FROM tenants WHERE deleted=0 ORDER BY name"
+            ).fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["metadata"] = json.loads(d.get("metadata", "{}"))
+            result.append(d)
+        return result
+
+    def soft_delete_tenant(self, tenant_id: str) -> None:
+        with self._cursor() as cur:
+            cur.execute(
+                "UPDATE tenants SET deleted=1, updated_at=? WHERE tenant_id=?",
+                (time.time(), tenant_id),
+            )

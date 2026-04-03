@@ -55,13 +55,16 @@ async def replay_trigger(
     trigger = store.get_trigger(trigger_id)
     if not trigger:
         raise HTTPException(status_code=404, detail=f"Trigger '{trigger_id}' not found")
-    # Re-queue the original envelope (watchdog must be running to process)
-    import uuid
+    import uuid, json as _json
     new_id = f"trig_{uuid.uuid4().hex[:16]}"
-    replayed = dict(trigger)
-    replayed["id"] = new_id
-    replayed["replay_of"] = trigger_id
-    store.create_trigger(replayed)
+    # payload column holds the original envelope JSON
+    try:
+        envelope = _json.loads(trigger.get("payload", "{}"))
+    except Exception:
+        envelope = {}
+    envelope["id"] = new_id
+    envelope["replay_of"] = trigger_id
+    store.create_trigger(envelope)
     return {"trigger_id": new_id, "status": "queued", "replay_of": trigger_id}
 
 

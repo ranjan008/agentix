@@ -100,7 +100,7 @@ class AgentTestHarness:
 
         store = StateStore(self._db_path)
         agent_id = self._spec.get("metadata", {}).get("name", "test-agent")
-        store.upsert_agent(agent_id, self._spec.get("spec", {}), self._spec.get("metadata", {}))
+        store.upsert_agent(self._spec)
 
         skill_engine = SkillEngine(store)
         skill_names = self._spec.get("spec", {}).get("skills", [])

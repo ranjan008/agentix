@@ -64,7 +64,8 @@ async def register_agent(
     store: Annotated[StateStore, Depends(get_store)],
     identity: Annotated[dict, Depends(require_admin)],
 ) -> dict:
-    store.upsert_agent(body.agent_id, body.spec, body.metadata)
+    full_spec = {"metadata": {"name": body.agent_id, **body.metadata}, "spec": body.spec}
+    store.upsert_agent(full_spec)
     return {"agent_id": body.agent_id, "status": "registered"}
 
 
@@ -78,7 +79,8 @@ async def update_agent(
     existing = store.get_agent(agent_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_id}' not found")
-    store.upsert_agent(agent_id, body.spec, body.metadata)
+    full_spec = {"metadata": {"name": agent_id, **body.metadata}, "spec": body.spec}
+    store.upsert_agent(full_spec)
     return {"agent_id": agent_id, "status": "updated"}
 
 
