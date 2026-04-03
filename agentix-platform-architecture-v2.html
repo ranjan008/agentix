@@ -203,6 +203,8 @@
           <span class="arch-box blue">HTTP Webhook</span>
           <span class="arch-box blue">WebSocket</span>
           <span class="arch-box teal">Slack / Teams / Discord</span>
+          <span class="arch-box teal">Telegram (Bot API)</span>
+          <span class="arch-box teal">WhatsApp (Meta Cloud API)</span>
           <span class="arch-box teal">Email (IMAP/SMTP)</span>
           <span class="arch-box green">Message Queue (SQS/RabbitMQ/Kafka)</span>
           <span class="arch-box amber">Cron Scheduler</span>
@@ -609,7 +611,8 @@ $ agentix skill list
     <div class="channel-card"><span class="channel-icon">&#128225;</span><div><div class="channel-name">gRPC</div><div class="channel-type">RPC / Streaming</div></div></div>
     <div class="channel-card"><span class="channel-icon">&#128193;</span><div><div class="channel-name">File Watcher</div><div class="channel-type">inotify / FSEvents</div></div></div>
     <div class="channel-card"><span class="channel-icon">&#128452;</span><div><div class="channel-name">DB Change Stream</div><div class="channel-type">CDC / Debezium</div></div></div>
-    <div class="channel-card"><span class="channel-icon">&#128241;</span><div><div class="channel-name">SMS / WhatsApp</div><div class="channel-type">Twilio / Meta</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#128241;</span><div><div class="channel-name">WhatsApp</div><div class="channel-type">Meta Cloud API / Twilio</div></div></div>
+    <div class="channel-card"><span class="channel-icon">&#9992;</span><div><div class="channel-name">Telegram</div><div class="channel-type">Bot API / Webhooks</div></div></div>
     <div class="channel-card"><span class="channel-icon">&#128276;</span><div><div class="channel-name">Push Notification</div><div class="channel-type">FCM / APNs</div></div></div>
     <div class="channel-card"><span class="channel-icon">&#129302;</span><div><div class="channel-name">Agent-to-Agent</div><div class="channel-type">Internal Bus</div></div></div>
     <div class="channel-card"><span class="channel-icon">&#128268;</span><div><div class="channel-name">Custom Plugin</div><div class="channel-type">Adapter Interface</div></div></div>
@@ -906,7 +909,7 @@ within_data_scope {
       <tr><td>Zero-Idle Serverless Runtime</td><td class="tick highlight">Native</td><td class="cross">Always-on gateway</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Partial</td></tr>
       <tr><td>RBAC (built-in, policy-based)</td><td class="tick highlight">OPA/Casbin, 6-layer</td><td class="partial">Enterprise only (Adopt AI)</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Basic</td></tr>
       <tr><td>Skills / Plugin System</td><td class="tick highlight">SkillHub + RBAC-gated</td><td class="tick">ClawHub, 100+ skills</td><td class="cross">No</td><td class="partial">Basic tools</td><td class="cross">No</td><td class="tick">Nodes/Plugins</td></tr>
-      <tr><td>Multi-Channel Triggers</td><td class="tick highlight">16+ native channels</td><td class="tick">Signal, Telegram, Discord, WhatsApp, Slack</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="tick">Yes</td></tr>
+      <tr><td>Multi-Channel Triggers</td><td class="tick highlight">18+ native channels</td><td class="tick">Signal, Telegram, Discord, WhatsApp, Slack</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="tick">Yes</td></tr>
       <tr><td>Cron + DAG Scheduler</td><td class="tick highlight">Cron + DAG + one-shot</td><td class="partial">Heartbeat (30-min poll)</td><td class="cross">No</td><td class="cross">No</td><td class="partial">Via LangSmith</td><td class="tick">Yes</td></tr>
       <tr><td>Multi-Agent Orchestration</td><td class="tick highlight">4 patterns + supervisor</td><td class="partial">Sub-agents, sessions_send</td><td class="tick">Native</td><td class="tick">Crews</td><td class="tick">Graph-based</td><td class="partial">Limited</td></tr>
       <tr><td>Agent-as-Tool Composition</td><td class="tick highlight">Yes</td><td class="partial">Via sessions_send</td><td class="tick">Yes</td><td class="partial">Partial</td><td class="tick">Yes</td><td class="cross">No</td></tr>

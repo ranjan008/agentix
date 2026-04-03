@@ -1,0 +1,43 @@
+watchdog:
+  # Infrastructure tier: lite | standard | enterprise
+  infra_tier: "lite"
+
+  # SQLite database path (Lite tier)
+  db_path: "data/agentix.db"
+
+  # Agent process spawn mode (Phase 1: process only)
+  spawn_mode: "process"
+
+  # Maximum concurrent agent processes
+  max_concurrent_agents: 10
+
+  # Seconds to wait for an agent to complete before killing it
+  shutdown_timeout_sec: 120
+
+  # Per-identity rate limiting
+  rate_limit:
+    max_requests: 60
+    window_sec: 60
+
+  # Security settings
+  security:
+    # Set to true to require valid JWT on all HTTP webhook requests
+    enforce_rbac: false
+    # Name of the environment variable holding the JWT signing secret
+    jwt_secret_env: "JWT_SECRET"
+    pre_check_timeout_ms: 100
+
+  # Ingress channel adapters
+  channels:
+    - type: "http_webhook"
+      port: 8080
+      path: "/trigger"
+      # Uncomment to require HMAC-signed webhooks:
+      # hmac_secret: "${WEBHOOK_HMAC_SECRET}"
+
+    # Slack (Socket Mode) — uncomment and set env vars to enable
+    # - type: "slack"
+    #   app_token: "${SLACK_APP_TOKEN}"       # xapp-...
+    #   bot_token: "${SLACK_BOT_TOKEN}"       # xoxb-...
+    #   signing_secret: "${SLACK_SIGNING_SECRET}"
+    #   default_agent_id: "my-agent"

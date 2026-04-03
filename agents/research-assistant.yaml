@@ -1,0 +1,47 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+metadata:
+  name: "research-assistant"
+  version: "1.0.0"
+  team: "platform"
+spec:
+  model:
+    provider: "anthropic"
+    model_id: "claude-sonnet-4-6"
+    temperature: 0.3
+    max_tokens: 4096
+
+  # Built-in skills to activate
+  skills:
+    - "web-search"
+    - "file-ops"
+
+  # Tools this agent is allowed to call
+  tools:
+    - "web_search"
+    - "web_fetch"
+    - "file_read"
+    - "file_write"
+    - "file_list"
+
+  # Memory configuration (Lite tier: SQLite)
+  memory:
+    short_term: "sqlite"
+    scope: "user"
+    max_history_turns: 10
+    ttl_sec: 3600
+
+  # Execution limits
+  execution:
+    timeout_sec: 120
+    max_tool_calls: 20
+
+  # Retry on failure
+  retry:
+    max_attempts: 3
+    backoff: "exponential"
+
+  # Channel trigger filters (informational for Phase 1)
+  triggers:
+    - channel: "http_webhook"
+    - channel: "slack"
