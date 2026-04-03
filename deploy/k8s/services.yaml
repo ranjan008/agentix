@@ -1,0 +1,80 @@
+---
+# Watchdog HTTP service
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentix-watchdog
+  namespace: agentix
+  labels:
+    app: agentix-watchdog
+spec:
+  selector:
+    app: agentix-watchdog
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: ClusterIP
+
+---
+# External ingress (optional — expose webhook endpoint)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentix-watchdog
+  namespace: agentix
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - agents.example.com
+      secretName: agentix-tls
+  rules:
+    - host: agents.example.com
+      http:
+        paths:
+          - path: /trigger
+            pathType: Prefix
+            backend:
+              service:
+                name: agentix-watchdog
+                port:
+                  name: http
+
+---
+# PVC for SQLite data (Lite tier) — replace with StatefulSet + PG for Standard
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentix-data-pvc
+  namespace: agentix
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# ConfigMap for watchdog config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentix-config
+  namespace: agentix
+data:
+  otel-endpoint: ""   # set to your OTLP collector, e.g. http://otel-collector:4317
+
+---
+# Secrets template (populate via kubectl create secret or external-secrets-operator)
+# kubectl create secret generic agentix-secrets \
+#   --from-literal=anthropic-api-key=sk-ant-... \
+#   --from-literal=jwt-secret=change-me \
+#   --from-literal=audit-hmac-secret=change-me \
+#   --namespace agentix

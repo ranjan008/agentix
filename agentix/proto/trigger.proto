@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package agentix;
+
+option py_generic_services = false;
+
+// TriggerService — gRPC channel adapter for Agentix
+service TriggerService {
+  // Unary: fire-and-forget single trigger
+  rpc SendTrigger (TriggerRequest) returns (TriggerResponse);
+
+  // Bidirectional streaming: client streams requests, server streams acks
+  rpc StreamTriggers (stream TriggerRequest) returns (stream TriggerResponse);
+}
+
+message TriggerRequest {
+  // Logical event type (e.g. "user.query", "task.run")
+  string event_type = 1;
+
+  // JSON-encoded payload dict
+  string payload_json = 2;
+
+  // JSON-encoded identity dict { "user_id": "...", "roles": [...] }
+  string identity_json = 3;
+
+  // Optional: route directly to a specific agent
+  string agent_id = 4;
+}
+
+message TriggerResponse {
+  string trigger_id = 1;
+  string status     = 2;  // "accepted" | "rejected" | "error"
+  string message    = 3;
+}

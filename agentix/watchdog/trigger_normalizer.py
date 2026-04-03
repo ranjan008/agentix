@@ -26,12 +26,55 @@ from __future__ import annotations
 
 import time
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
 
 def _new_id() -> str:
     return f"trig_{uuid.uuid4().hex[:16]}"
+
+
+@dataclass
+class TriggerEnvelope:
+    """
+    Unified trigger envelope produced by all channel adapters.
+
+    Converts to the canonical dict format expected by the watchdog
+    (call .to_dict()) or can be used directly where the dataclass form
+    is more convenient.
+    """
+
+    channel: str
+    event_type: str
+    payload: dict
+    identity: dict
+    raw: Any = field(default=None, repr=False)
+    trigger_id: str = field(default_factory=_new_id)
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    def to_dict(self) -> dict:
+        """Convert to the canonical watchdog dict format."""
+        return {
+            "id": self.trigger_id,
+            "timestamp": self.timestamp,
+            "channel": self.channel,
+            "channel_meta": {"event_type": self.event_type},
+            "caller": {
+                "identity_id": self.identity.get("user_id", "anonymous"),
+                "roles": self.identity.get("roles", ["end-user"]),
+                "tenant_id": self.identity.get("tenant_id", "default"),
+            },
+            "payload": {
+                "text": self.payload.get("text", ""),
+                "attachments": self.payload.get("attachments", []),
+                "context": {k: v for k, v in self.payload.items() if k not in ("text", "attachments")},
+            },
+            "agent_id": self.payload.get("_agent_id", ""),
+            "priority": self.payload.get("priority", "normal"),
+            "idempotency_key": self.payload.get("message_id") or self.trigger_id,
+            "_identity": self.identity,
+        }
 
 
 def _now_iso() -> str:

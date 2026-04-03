@@ -26,6 +26,37 @@ watchdog:
     # Name of the environment variable holding the JWT signing secret
     jwt_secret_env: "JWT_SECRET"
     pre_check_timeout_ms: 100
+    # Path to custom RBAC policy rules (OPA-style YAML)
+    policy_file: "config/policy.yaml"
+
+  # Secrets vault configuration
+  secrets:
+    # backend: env | file | vault | aws_sm
+    backend: "env"
+    # For 'file' backend:
+    # path: "data/secrets.json"
+    # For 'vault' backend:
+    # vault_addr: "http://vault:8200"
+    # vault_token_env: "VAULT_TOKEN"
+    # mount_point: "secret"
+    # For 'aws_sm' backend:
+    # region: "us-east-1"
+    # prefix: "agentix/"
+
+  # Standard tier (PostgreSQL + Redis) — uncomment to upgrade from Lite
+  # infra_tier: "standard"
+  # database_url: "postgresql://user:pass@localhost:5432/agentix"
+  # redis_url: "redis://localhost:6379/0"
+
+  # Scheduler
+  scheduler:
+    tick_sec: 5
+    schedules_dir: "schedules"
+
+  # Event bus subscriptions (agent-to-agent event cascade)
+  # event_subscriptions:
+  #   - event: "order.created"
+  #     agent: "notification-agent"
 
   # Ingress channel adapters
   channels:

@@ -49,7 +49,7 @@ class ToolExecutor:
         for name in tool_names:
             fn = _TOOL_REGISTRY.get(name)
             if fn and hasattr(fn, "_tool_schema"):
-                schemas.append(fn._tool_schema)
+                schemas.append(fn._tool_schema)  # type: ignore[union-attr]
             else:
                 logger.warning("No schema found for tool '%s'", name)
         return schemas
@@ -63,7 +63,7 @@ def tool(name: str, description: str, input_schema: dict):
             "description": description,
             "input_schema": input_schema,
         }
-        fn._tool_schema = schema
+        fn._tool_schema = schema  # type: ignore[attr-defined]
         register_tool(name, fn)
         return fn
     return decorator
