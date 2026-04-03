@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import sys
-from pathlib import Path
 
 from agentix.agent_runtime.context_builder import build_messages, build_system_prompt, persist_turn
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec

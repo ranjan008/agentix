@@ -12,7 +12,7 @@ import os
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from agentix.storage.state_store import StateStore

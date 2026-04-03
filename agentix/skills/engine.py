@@ -13,7 +13,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import yaml
 
 if TYPE_CHECKING:
     from agentix.agent_runtime.tool_executor import ToolExecutor
@@ -81,9 +80,9 @@ class SkillEngine:
             skill_dir = Path(name)
             skill_init = skill_dir / "__init__.py"
             if skill_init.exists():
-                import importlib.util
-                spec = importlib.util.spec_from_file_location(f"skill_{skill_dir.name}", skill_init)
-                mod = importlib.util.module_from_spec(spec)
+                import importlib.util as _importlib_util
+                spec = _importlib_util.spec_from_file_location(f"skill_{skill_dir.name}", skill_init)
+                mod = _importlib_util.module_from_spec(spec)
                 spec.loader.exec_module(mod)
                 return mod
 

@@ -20,7 +20,6 @@ import struct
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -270,8 +269,8 @@ class PgVectorBackend(VectorBackend):
                 """)
                 cur.execute(
                     "CREATE INDEX IF NOT EXISTS idx_vec_ivfflat "
-                    f"ON vector_docs USING ivfflat (embedding vector_cosine_ops) "
-                    f"WITH (lists = 100)"
+                    "ON vector_docs USING ivfflat (embedding vector_cosine_ops) "
+                    "WITH (lists = 100)"
                 )
             conn.commit()
         finally:

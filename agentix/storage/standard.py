@@ -130,7 +130,6 @@ class PostgreSQLStateStore:
         now = time.time()
         conn = self._connect()
         try:
-            import psycopg2.extras
             with conn.cursor() as cur:
                 cur.execute(
                     """INSERT INTO agents (id, name, version, spec, tenant_id, created_at, updated_at)

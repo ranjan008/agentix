@@ -94,7 +94,7 @@ def _register(scheduler: Scheduler, doc: dict, source: str) -> None:
         elif stype == "one_shot":
             fire_at = spec.get("fire_at")
             if isinstance(fire_at, str):
-                from datetime import datetime, timezone
+                from datetime import datetime
                 fire_at = datetime.fromisoformat(fire_at).timestamp()
             scheduler.add_one_shot(
                 name=name,

@@ -24,12 +24,10 @@ import base64
 import hashlib
 import json
 import logging
-import os
 import secrets
 import time
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any
 
 import httpx
 import jwt as pyjwt
@@ -312,7 +310,8 @@ class ServiceAccountManager:
         Create a new service account key.
         Returns (account_id, plain_api_key) — plain key shown ONCE, never stored.
         """
-        import sqlite3, uuid
+        import sqlite3
+        import uuid
         plain_key = f"sk-agentix-{secrets.token_urlsafe(32)}"
         key_hash = hashlib.sha256(plain_key.encode()).hexdigest()
         account_id = f"sa_{uuid.uuid4().hex[:12]}"

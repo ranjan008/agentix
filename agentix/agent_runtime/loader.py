@@ -4,7 +4,6 @@ Agent Loader — reads an agent YAML definition and validates it.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import yaml
 

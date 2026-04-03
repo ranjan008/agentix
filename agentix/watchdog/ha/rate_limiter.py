@@ -56,7 +56,6 @@ class DistributedRateLimiter:
         self._check_memory(identity_id)
 
     def _check_redis(self, r, identity_id: str) -> None:
-        from redis.exceptions import RedisError
         key = f"{self.key_prefix}{identity_id}"
         now = time.time()
         window_start = now - self.window_sec

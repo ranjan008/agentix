@@ -7,8 +7,8 @@ Run:
 import pytest
 
 from agentix.llm.base import ToolCall
-from agentix.testing import AgentTestHarness, AgentAssertions, LLMScript, MockLLMProvider
-from agentix.testing.mock_llm import LLMTurn, LLMScriptExhausted
+from agentix.testing import AgentTestHarness, AgentAssertions, LLMScript
+from agentix.testing.mock_llm import LLMTurn
 from agentix.testing.fixtures import minimal_agent_spec
 
 

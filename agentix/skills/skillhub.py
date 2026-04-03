@@ -25,7 +25,6 @@ import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -88,7 +87,6 @@ def verify_skill_signature(spec: dict, signature_b64: str, publisher_id: str) ->
         logger.warning("Publisher '%s' not in trusted list", publisher_id)
         return False
     try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         from cryptography.hazmat.primitives.serialization import load_der_public_key
         import base64
         pub_bytes = base64.b64decode(_TRUSTED_PUBLISHERS[publisher_id])

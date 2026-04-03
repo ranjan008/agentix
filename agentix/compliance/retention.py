@@ -27,7 +27,6 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 

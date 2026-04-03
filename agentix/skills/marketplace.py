@@ -11,10 +11,8 @@ The bundled catalog is a YAML file at skills/catalog.yaml, updated with each rel
 """
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
-from typing import Any
 
 import yaml
 

@@ -13,7 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
-from agentix.api.deps import get_store, require_admin, get_current_identity
+from agentix.api.deps import get_store, require_admin
 from agentix.storage.state_store import StateStore
 
 router = APIRouter()

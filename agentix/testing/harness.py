@@ -36,8 +36,6 @@ import json
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -104,7 +102,7 @@ class AgentTestHarness:
 
         skill_engine = SkillEngine(store)
         skill_names = self._spec.get("spec", {}).get("skills", [])
-        skill_instructions = skill_engine.load_skills(skill_names)
+        skill_engine.load_skills(skill_names)
         skill_tools = skill_engine.get_tool_schemas(skill_names)
 
         executor = ToolExecutor(self._spec.get("spec", {}).get("tools", None))
@@ -112,7 +110,7 @@ class AgentTestHarness:
 
         identity = identity or {"identity_id": "test-user", "roles": ["operator"], "tenant_id": "test"}
 
-        envelope = {
+        {
             "id": f"trig_{uuid.uuid4().hex[:16]}",
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "channel": "test",

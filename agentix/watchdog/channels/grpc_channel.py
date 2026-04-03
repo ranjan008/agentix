@@ -42,7 +42,6 @@ import asyncio
 import json
 import logging
 import os
-import uuid
 from typing import Callable, Awaitable
 
 from aiohttp import web
@@ -84,7 +83,7 @@ class GRPCChannel:
             return
 
         try:
-            from agentix.proto import trigger_pb2, trigger_pb2_grpc
+            from agentix.proto import trigger_pb2_grpc
         except ImportError:
             log.warning("GRPCChannel: proto stubs not found — generate with `python -m grpc_tools.protoc`. Channel skipped.")
             return

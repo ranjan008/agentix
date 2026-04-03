@@ -15,7 +15,6 @@ Pricing table is configurable; ships with defaults for current Anthropic models.
 """
 from __future__ import annotations
 
-import json
 import logging
 import sqlite3
 import time
@@ -230,11 +229,14 @@ class CostLedger:
         """Return aggregated usage summary."""
         clauses, params = [], []
         if tenant_id:
-            clauses.append("tenant_id=?"); params.append(tenant_id)
+            clauses.append("tenant_id=?")
+            params.append(tenant_id)
         if agent_id:
-            clauses.append("agent_id=?"); params.append(agent_id)
+            clauses.append("agent_id=?")
+            params.append(agent_id)
         if since:
-            clauses.append("ts>=?"); params.append(since)
+            clauses.append("ts>=?")
+            params.append(since)
 
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         with self._tx() as cur:

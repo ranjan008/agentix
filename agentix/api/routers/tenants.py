@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from agentix.api.deps import get_store, require_platform_admin, require_admin, get_current_identity
+from agentix.api.deps import get_store, require_platform_admin, require_admin
 from agentix.storage.state_store import StateStore
 
 router = APIRouter()

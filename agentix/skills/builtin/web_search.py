@@ -4,7 +4,6 @@ Provides web search and page fetch capabilities via httpx.
 """
 from __future__ import annotations
 
-import json
 import urllib.parse
 
 import httpx

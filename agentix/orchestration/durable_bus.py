@@ -22,7 +22,6 @@ import asyncio
 import json
 import logging
 import time
-import uuid
 from typing import Callable, Awaitable
 
 logger = logging.getLogger(__name__)
@@ -166,7 +165,7 @@ class RedisStreamsBus:
 
             # Build a minimal source envelope for child trigger construction
             from agentix.watchdog.trigger_normalizer import from_http
-            source_envelope = {
+            {
                 "id": fields.get("source_trigger_id", ""),
                 "agent_id": fields.get("source_agent_id", ""),
                 "caller": {
@@ -277,7 +276,7 @@ class KafkaBus:
 
     async def _consumer_loop(self) -> None:
         try:
-            from confluent_kafka import Consumer, KafkaError
+            from confluent_kafka import Consumer
         except ImportError:
             logger.error("Kafka consumer requires 'confluent-kafka': pip install confluent-kafka")
             return

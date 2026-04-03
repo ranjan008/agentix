@@ -12,9 +12,7 @@ to the shared on_trigger callback.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import hmac
-import json
 import logging
 import os
 from typing import Callable, Awaitable

@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
 from agentix.llm.base import BaseLLMProvider, LLMResponse
 

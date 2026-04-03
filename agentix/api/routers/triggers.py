@@ -55,7 +55,8 @@ async def replay_trigger(
     trigger = store.get_trigger(trigger_id)
     if not trigger:
         raise HTTPException(status_code=404, detail=f"Trigger '{trigger_id}' not found")
-    import uuid, json as _json
+    import uuid
+    import json as _json
     new_id = f"trig_{uuid.uuid4().hex[:16]}"
     # payload column holds the original envelope JSON
     try:

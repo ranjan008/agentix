@@ -9,7 +9,6 @@ import logging
 import os
 import signal
 import sys
-from pathlib import Path
 
 from agentix.watchdog.agent_spawner import AgentSpawner
 from agentix.watchdog.auth import RateLimiter

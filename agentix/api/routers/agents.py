@@ -10,7 +10,7 @@ GET    /agents/{agent_id}/state — get agent runtime state
 """
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
