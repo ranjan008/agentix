@@ -81,7 +81,7 @@ class SequentialChain:
         variables = variables or {}
         output = parent_envelope["payload"]["text"]
         chain_id = f"chain_{uuid.uuid4().hex[:10]}"
-        results = []
+        results: list[dict] = []
 
         for i, step in enumerate(self.steps):
             agent_id = step["agent"]
@@ -177,7 +177,7 @@ class ParallelFanOut:
             if isinstance(r, Exception):
                 results.append({"agent": agent_id, "error": str(r), "response": ""})
             else:
-                results.append({**r, "agent": agent_id})
+                results.append({**r, "agent": agent_id})  # type: ignore[dict-item]
 
         # Optional aggregation pass
         if self.aggregator_agent:

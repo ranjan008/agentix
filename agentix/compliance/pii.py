@@ -89,7 +89,7 @@ class PIIDetector:
 
     def _scan_presidio(self, text: str) -> list[PIIFinding]:
         try:
-            results = self._presidio.analyze(text=text, language="en")
+            results = self._presidio.analyze(text=text, language="en")  # type: ignore[union-attr]
             findings = []
             for r in results:
                 findings.append(PIIFinding(
@@ -134,7 +134,7 @@ class PIIRedactor:
 
     def redact_dict(self, data: dict, fields: list[str] | None = None) -> dict:
         """Redact string values in a dict. If fields is given, only redact those keys."""
-        out = {}
+        out: dict = {}
         for k, v in data.items():
             if isinstance(v, str) and (fields is None or k in fields):
                 out[k] = self.redact(v)

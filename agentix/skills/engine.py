@@ -82,8 +82,10 @@ class SkillEngine:
             if skill_init.exists():
                 import importlib.util as _importlib_util
                 spec = _importlib_util.spec_from_file_location(f"skill_{skill_dir.name}", skill_init)
+                if spec is None or spec.loader is None:
+                    raise ImportError(f"Cannot load skill module from {skill_init}")
                 mod = _importlib_util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
+                spec.loader.exec_module(mod)  # type: ignore[union-attr]
                 return mod
 
         # 3. Installed skill from DB

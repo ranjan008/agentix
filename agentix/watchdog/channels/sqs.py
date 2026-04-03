@@ -23,7 +23,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Callable, Awaitable
+from typing import Any, Callable, Awaitable
 
 from aiohttp import web
 
@@ -48,7 +48,7 @@ class SQSChannel:
         self._on_trigger = on_trigger
         self._poll_task: asyncio.Task | None = None
         self._running = False
-        self._sqs = None  # boto3 client, created lazily
+        self._sqs: Any = None  # boto3 client, created lazily
 
     # ------------------------------------------------------------------
     # Lifecycle

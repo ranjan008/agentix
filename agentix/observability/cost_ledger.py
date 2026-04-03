@@ -227,7 +227,8 @@ class CostLedger:
         since: float | None = None,
     ) -> dict:
         """Return aggregated usage summary."""
-        clauses, params = [], []
+        clauses: list[str] = []
+        params: list = []
         if tenant_id:
             clauses.append("tenant_id=?")
             params.append(tenant_id)

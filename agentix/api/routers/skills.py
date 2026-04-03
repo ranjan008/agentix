@@ -9,7 +9,7 @@ GET    /skills/marketplace  — search marketplace catalog
 """
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -33,7 +33,7 @@ async def list_skills(
     try:
         from agentix.skills.marketplace import SkillMarketplace
         mp = SkillMarketplace()
-        return [{"name": s.name, "description": s.description, "version": s.version, "source": "marketplace"} for s in mp._BUNDLED_CATALOG]
+        return [{"name": s["name"], "description": s.get("description", ""), "version": s.get("version", ""), "source": "marketplace"} for s in mp.list_all()]
     except Exception:
         return []
 
@@ -41,12 +41,12 @@ async def list_skills(
 @router.get("/skills/marketplace")
 async def search_marketplace(
     q: str = Query(""),
-    identity: Annotated[dict, Depends(get_current_identity)] = None,
+    identity: Annotated[Optional[dict], Depends(get_current_identity)] = None,
 ) -> list[dict]:
     from agentix.skills.marketplace import SkillMarketplace
     mp = SkillMarketplace()
     results = mp.search(q)
-    return [{"name": r.name, "description": r.description, "version": r.version, "tags": r.tags} for r in results]
+    return [{"name": r["name"], "description": r.get("description", ""), "version": r.get("version", ""), "tags": r.get("tags", [])} for r in results]
 
 
 @router.post("/skills/{name}/install", status_code=201)
@@ -57,9 +57,11 @@ async def install_skill(
     identity: Annotated[dict, Depends(require_admin)],
 ) -> dict:
     from agentix.skills.marketplace import SkillMarketplace
+    from agentix.skills.skillhub import SkillHub
     mp = SkillMarketplace()
-    path = mp.install(name, version=body.version, verify_sig=body.verify_signature)
-    return {"name": name, "status": "installed", "path": str(path)}
+    hub = SkillHub(store)
+    record = mp.install(name, skillhub=hub)
+    return {"name": name, "status": "installed", "path": str(record.get("install_path", ""))}
 
 
 @router.delete("/skills/{name}", status_code=204)

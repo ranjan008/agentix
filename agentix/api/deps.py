@@ -41,7 +41,7 @@ def _resolve_identity(credentials: HTTPAuthorizationCredentials | None) -> dict:
     # Try API key prefix
     if token.startswith("sk-agentix-"):
         from agentix.security.identity.provider import ServiceAccountManager
-        sam = ServiceAccountManager(_get_store().db_path)
+        sam = ServiceAccountManager(str(_get_store().db_path))
         identity = sam.validate(token)
         if identity:
             return {"identity_id": identity.identity_id, "roles": identity.roles, "tenant_id": identity.tenant_id}

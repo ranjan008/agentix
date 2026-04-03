@@ -121,7 +121,7 @@ class OIDCProvider:
                 raise ValueError("No matching JWKS key found")
 
             claims = pyjwt.decode(
-                token, key,
+                token, key,  # type: ignore[arg-type]
                 algorithms=["RS256", "RS384", "RS512"],
                 audience=self.audience,
                 issuer=self.issuer,

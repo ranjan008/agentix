@@ -17,6 +17,7 @@ import logging
 import os
 import socket
 import uuid
+from typing import Callable, Awaitable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,8 @@ class LeaderElection:
         self,
         redis_url: str = "redis://localhost:6379/0",
         ttl_sec: int = 30,
-        on_elected: asyncio.coroutines = None,
-        on_demoted: asyncio.coroutines = None,
+        on_elected: Optional[Callable[[], Awaitable[None]]] = None,
+        on_demoted: Optional[Callable[[], Awaitable[None]]] = None,
     ) -> None:
         self.redis_url = redis_url
         self.ttl_sec = ttl_sec

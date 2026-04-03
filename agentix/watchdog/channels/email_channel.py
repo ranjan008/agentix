@@ -120,8 +120,8 @@ class EmailChannel:
                 if uid in self._seen_uids:
                     continue
                 _, msg_data = conn.fetch(uid, "(RFC822)")
-                raw = msg_data[0][1]
-                parsed = email_lib.message_from_bytes(raw, policy=email_lib.policy.default)
+                raw = msg_data[0][1]  # type: ignore[index]
+                parsed = email_lib.message_from_bytes(raw, policy=email_lib.policy.default)  # type: ignore[arg-type]
                 results.append(_parse_email(uid.decode(), parsed))
                 self._seen_uids.add(uid)
                 # Mark as seen

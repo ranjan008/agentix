@@ -83,7 +83,7 @@ class GRPCChannel:
             return
 
         try:
-            from agentix.proto import trigger_pb2_grpc
+            from agentix.proto import trigger_pb2_grpc  # type: ignore[attr-defined]
         except ImportError:
             log.warning("GRPCChannel: proto stubs not found — generate with `python -m grpc_tools.protoc`. Channel skipped.")
             return

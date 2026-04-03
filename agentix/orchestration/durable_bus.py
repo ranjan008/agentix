@@ -22,7 +22,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Callable, Awaitable
+from typing import Any, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
@@ -325,10 +325,11 @@ class KafkaBus:
 # Factory
 # ---------------------------------------------------------------------------
 
-def build_event_bus(cfg: dict, on_trigger: OnTrigger) -> RedisStreamsBus | KafkaBus:
+def build_event_bus(cfg: dict, on_trigger: OnTrigger):  # type: ignore[return]
     bus_cfg = cfg.get("event_bus", {})
     backend = bus_cfg.get("backend", "memory")
 
+    bus: Any
     if backend == "redis":
         redis_url = cfg.get("redis_url", "redis://localhost:6379/0")
         bus = RedisStreamsBus(redis_url=redis_url, on_trigger=on_trigger,

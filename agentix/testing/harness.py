@@ -150,7 +150,7 @@ class AgentTestHarness:
                     messages.append({"role": "assistant", "content": resp.content or ""})
                     all_tool_calls.extend(resp.tool_calls)
 
-                    tool_results = []
+                    tool_results: list[dict] = []
                     for tc in resp.tool_calls:
                         try:
                             result = executor.execute(tc.name, tc.input)

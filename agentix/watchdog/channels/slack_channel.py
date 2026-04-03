@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Callable, Awaitable
+from typing import Any, Callable, Awaitable
 
 from agentix.watchdog import trigger_normalizer as tn
 
@@ -37,7 +37,7 @@ class SlackChannel:
         self.on_trigger = on_trigger
         # Optional: map (channel_id, text) -> agent_id
         self.agent_router = agent_router
-        self._handler = None
+        self._handler: Any = None
 
     def _get_agent_id(self, channel_id: str, text: str) -> str:
         if self.agent_router:

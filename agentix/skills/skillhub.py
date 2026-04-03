@@ -90,7 +90,11 @@ def verify_skill_signature(spec: dict, signature_b64: str, publisher_id: str) ->
         from cryptography.hazmat.primitives.serialization import load_der_public_key
         import base64
         pub_bytes = base64.b64decode(_TRUSTED_PUBLISHERS[publisher_id])
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
         pub_key = load_der_public_key(pub_bytes)
+        if not isinstance(pub_key, Ed25519PublicKey):
+            logger.warning("Only Ed25519 keys are supported for skill signature verification")
+            return False
         sig = base64.b64decode(signature_b64)
         pub_key.verify(sig, _hash_dict(spec).encode())
         return True
@@ -144,9 +148,9 @@ class SkillHub:
 
         # Copy sibling Python files if skill_path is a directory
         if spec_path.parent.is_dir():
-            for f in spec_path.parent.iterdir():
-                if f.suffix in (".py", ".md") and f.name != "skill.yaml":
-                    shutil.copy2(f, skill_dir / f.name)
+            for sibling in spec_path.parent.iterdir():
+                if sibling.suffix in (".py", ".md") and sibling.name != "skill.yaml":
+                    shutil.copy2(sibling, skill_dir / sibling.name)
 
         # Build and write manifest
         manifest = _build_manifest(skill_dir)

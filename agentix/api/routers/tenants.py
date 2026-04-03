@@ -51,7 +51,7 @@ async def create_tenant(
     from agentix.storage.tenant import apply_tenant_migration
     import os
     db_path = os.environ.get("AGENTIX_DB_PATH", "data/agentix.db")
-    apply_tenant_migration(db_path, body.tenant_id)
+    apply_tenant_migration(db_path)
     store.upsert_tenant(body.tenant_id, body.name, body.tier, body.metadata)
     return {"tenant_id": body.tenant_id, "status": "created"}
 

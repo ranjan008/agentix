@@ -16,7 +16,7 @@ OR when explicitly enabled in config: channels.<name>.enabled = true.
 from __future__ import annotations
 
 import logging
-from typing import Callable, Awaitable
+from typing import Any, Callable, Awaitable
 
 from aiohttp import web
 
@@ -35,9 +35,9 @@ class ChannelRegistry:
         app: web.Application,
     ) -> None:
         self._cfg = cfg
-        self._on_trigger = on_trigger
+        self._on_trigger: Any = on_trigger  # channels type as Callable[[dict], ...]; cast to Any
         self._app = app
-        self._channels: list = []
+        self._channels: list[Any] = []
 
     def _channel_cfg(self, name: str) -> dict:
         """Merge top-level cfg with channels.<name> sub-dict."""
@@ -57,47 +57,60 @@ class ChannelRegistry:
     # Channel factories
     # ------------------------------------------------------------------
 
-    def _build_http(self) -> object | None:
-        from agentix.watchdog.channels.http_webhook import HTTPWebhookChannel
-        return HTTPWebhookChannel(self._channel_cfg("http"), self._on_trigger, self._app)
+    def _build_http(self) -> Any:
+        from agentix.watchdog.channels.http_webhook import HttpWebhookChannel
+        cfg = self._channel_cfg("http")
+        return HttpWebhookChannel(
+            port=int(cfg.get("http_port", 8080)),
+            path=cfg.get("http_path", "/trigger"),
+            jwt_secret=cfg.get("jwt_secret", ""),
+            on_trigger=self._on_trigger,
+        )
 
-    def _build_slack(self) -> object | None:
+    def _build_slack(self) -> Any:
         if not self._enabled("slack", ["slack_bot_token", "slack_signing_secret"]):
             return None
         from agentix.watchdog.channels.slack_channel import SlackChannel
-        return SlackChannel(self._channel_cfg("slack"), self._on_trigger, self._app)
+        cfg = self._channel_cfg("slack")
+        return SlackChannel(
+            app_token=cfg.get("slack_app_token", ""),
+            bot_token=cfg.get("slack_bot_token", ""),
+            signing_secret=cfg.get("slack_signing_secret", ""),
+            default_agent_id=cfg.get("default_agent_id", ""),
+            on_trigger=self._on_trigger,
+        )
 
-    def _build_telegram(self) -> object | None:
+    def _build_telegram(self) -> Any:
         if not self._enabled("telegram", ["telegram_bot_token"]):
             return None
         from agentix.watchdog.channels.telegram import TelegramChannel
         return TelegramChannel(self._channel_cfg("telegram"), self._on_trigger, self._app)
 
-    def _build_whatsapp(self) -> object | None:
+    def _build_whatsapp(self) -> Any:
         if not self._enabled("whatsapp", ["whatsapp_access_token"]):
             return None
         from agentix.watchdog.channels.whatsapp import WhatsAppChannel
         return WhatsAppChannel(self._channel_cfg("whatsapp"), self._on_trigger, self._app)
 
-    def _build_teams(self) -> object | None:
+    def _build_teams(self) -> Any:
         if not self._enabled("teams", ["teams_app_id", "teams_app_password"]):
             return None
         from agentix.watchdog.channels.teams import TeamsChannel
         return TeamsChannel(self._channel_cfg("teams"), self._on_trigger, self._app)
 
-    def _build_email(self) -> object | None:
+    def _build_email(self) -> Any:
         if not self._enabled("email", ["email_imap_host"]):
             return None
         from agentix.watchdog.channels.email_channel import EmailChannel
         return EmailChannel(self._channel_cfg("email"), self._on_trigger, self._app)
 
-    def _build_sqs(self) -> object | None:
+    def _build_sqs(self) -> Any:
         if not self._enabled("sqs", ["sqs_queue_url"]):
             return None
         from agentix.watchdog.channels.sqs import SQSChannel
         return SQSChannel(self._channel_cfg("sqs"), self._on_trigger, self._app)
 
-    def _build_grpc(self) -> object | None:
+    def _build_grpc(self) -> Any:
         if not self._enabled("grpc", ["grpc_listen_port"]):
             return None
         from agentix.watchdog.channels.grpc_channel import GRPCChannel
