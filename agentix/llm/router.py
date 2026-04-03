@@ -21,6 +21,9 @@ Configuration example (watchdog.yaml):
         model: gemini-2.0-flash
       bedrock:
         model: anthropic.claude-sonnet-4-6-20251001-v1:0
+      local:                                     # Ollama / LM Studio / vLLM
+        base_url: http://localhost:11434/v1
+        model: llama3.2
 
     routing:
       # Route by agent tag
@@ -63,6 +66,7 @@ def _load_providers() -> None:
     from agentix.llm.providers.openai_provider import OpenAIProvider, AzureOpenAIProvider
     from agentix.llm.providers.gemini_provider import GeminiProvider
     from agentix.llm.providers.bedrock_provider import BedrockProvider
+    from agentix.llm.providers.local_provider import LocalProvider
 
     _PROVIDER_REGISTRY.update({
         "anthropic": AnthropicProvider,
@@ -70,6 +74,11 @@ def _load_providers() -> None:
         "azure_openai": AzureOpenAIProvider,
         "gemini": GeminiProvider,
         "bedrock": BedrockProvider,
+        "local": LocalProvider,
+        # Convenience aliases
+        "ollama": LocalProvider,
+        "lmstudio": LocalProvider,
+        "vllm": LocalProvider,
     })
 
 

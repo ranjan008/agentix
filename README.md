@@ -299,8 +299,87 @@ See [docs/setup-guide.md](docs/setup-guide.md#whatsapp-channel-configuration) fo
 | Azure OpenAI | `azure_openai` | Requires endpoint + deployment name |
 | Google Gemini | `gemini` | Gemini 2.0 Flash recommended |
 | AWS Bedrock | `bedrock` | Uses boto3 credential chain |
+| **Local / self-hosted** | `local`, `ollama`, `lmstudio`, `vllm` | Any OpenAI-compatible server |
 
 Routing is tag-based. Tag an agent with `tags: [fast]` and set `match_tag: fast → provider: gemini` in the routing rules to route automatically.
+
+### Local models (Ollama, LM Studio, vLLM, llama.cpp)
+
+Any server that exposes an OpenAI-compatible `/v1/chat/completions` endpoint works out of the box.
+
+**Ollama** (default port 11434):
+```bash
+ollama pull llama3.2          # or mistral, qwen2.5, phi3, gemma2, etc.
+ollama serve
+```
+
+```yaml
+# config/watchdog.yaml
+llm:
+  default_provider: ollama
+  providers:
+    ollama:
+      base_url: http://localhost:11434/v1
+      model: llama3.2
+      api_key: ollama              # placeholder — not validated
+```
+
+**LM Studio** (default port 1234):
+```yaml
+llm:
+  default_provider: lmstudio
+  providers:
+    lmstudio:
+      base_url: http://localhost:1234/v1
+      model: lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF
+```
+
+**vLLM** (production GPU server):
+```yaml
+llm:
+  default_provider: vllm
+  providers:
+    vllm:
+      base_url: http://gpu-server:8000/v1
+      model: mistralai/Mistral-7B-Instruct-v0.3
+      api_key: ${VLLM_API_KEY}
+```
+
+**Mixed routing** — local for privacy-sensitive tags, cloud for everything else:
+```yaml
+llm:
+  default_provider: anthropic
+  providers:
+    anthropic:
+      api_key: ${ANTHROPIC_API_KEY}
+      model: claude-sonnet-4-6
+    ollama:
+      base_url: http://localhost:11434/v1
+      model: llama3.2
+  routing:
+    rules:
+      - match_tag: private          # keep data on-prem
+        provider: ollama
+      - match_tag: fast
+        provider: anthropic
+    fallback_chain: [anthropic, ollama]
+```
+
+**Tool use with local models**: Most modern quantised models (Llama 3.1+, Mistral, Qwen 2.5, Phi-3) support tool calling. If your model does not, disable it and Agentix routes tool calls via prompt:
+```yaml
+providers:
+  ollama:
+    base_url: http://localhost:11434/v1
+    model: phi3           # older model — no native tool support
+    supports_tools: false
+```
+
+**Env var overrides** (useful in Docker/K8s):
+```
+LOCAL_LLM_BASE_URL=http://ollama-service:11434/v1
+LOCAL_LLM_MODEL=llama3.2
+LOCAL_LLM_API_KEY=ollama
+```
 
 ---
 
