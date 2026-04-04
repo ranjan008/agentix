@@ -20,7 +20,8 @@ COPY pyproject.toml ./
 COPY agentix/ ./agentix/
 
 # Install into a prefix we'll copy to the runtime stage
-RUN pip install --prefix=/install --no-cache-dir ".[standard]"
+RUN pip install --upgrade pip setuptools && \
+    pip install --prefix=/install --no-cache-dir .
 
 # ---------------------------------------------------------------------------
 # Stage 2 — runtime
