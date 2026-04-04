@@ -6,7 +6,19 @@ build-backend = "setuptools.build_meta"
 name = "agentix"
 version = "0.1.0"
 description = "Serverless Agentic Platform — Zero-Idle, Event-Driven, Secure by Default"
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 dependencies = [
     # Watchdog / HTTP
     "aiohttp>=3.9",
