@@ -25,6 +25,7 @@ _BUILTIN_SKILLS: dict[str, str] = {
     "web-search": "agentix.skills.builtin.web_search",
     "file-ops": "agentix.skills.builtin.file_ops",
     "email-composer": "agentix.skills.builtin.email_composer",
+    "browser": "agentix.skills.builtin.browser",
 }
 
 
@@ -35,31 +36,50 @@ class SkillEngine:
     def load_skills(self, skill_names: list[str]) -> list[str]:
         """
         Load skills and return their instruction strings (for the system prompt).
+
+        Checks both ``INSTRUCTIONS`` (older convention) and ``SKILL_INSTRUCTIONS``
+        (browser skill / newer convention) so both styles work.
         """
         instructions = []
         for name in skill_names:
             try:
                 module = self._import_skill(name)
-                if hasattr(module, "INSTRUCTIONS"):
-                    instructions.append(module.INSTRUCTIONS)
+                text = getattr(module, "INSTRUCTIONS", None) or getattr(module, "SKILL_INSTRUCTIONS", None)
+                if text:
+                    instructions.append(text)
             except Exception as e:
                 logger.warning("Could not load skill '%s': %s", name, e)
         return instructions
 
     def get_tool_schemas(self, skill_names: list[str]) -> list[dict]:
-        """Return all tool schemas contributed by the listed skills."""
+        """Return all tool schemas contributed by the listed skills.
+
+        Checks both ``TOOL_SCHEMAS`` and ``SKILL_TOOLS`` (list of tool names
+        whose schemas are retrieved from the tool executor registry).
+        """
+        from agentix.agent_runtime.tool_executor import _TOOL_REGISTRY
         schemas = []
         for name in skill_names:
             try:
                 module = self._import_skill(name)
                 if hasattr(module, "TOOL_SCHEMAS"):
                     schemas.extend(module.TOOL_SCHEMAS)
+                elif hasattr(module, "SKILL_TOOLS"):
+                    for tool_name in module.SKILL_TOOLS:
+                        fn = _TOOL_REGISTRY.get(tool_name)
+                        if fn and hasattr(fn, "_tool_schema"):
+                            schemas.append(fn._tool_schema)  # type: ignore[attr-defined]
             except Exception as e:
                 logger.warning("Could not get schemas for skill '%s': %s", name, e)
         return schemas
 
     def register_skill_tools(self, skill_names: list[str], executor: "ToolExecutor") -> None:
-        """Register each skill's tools into the tool executor."""
+        """Register each skill's tools into the tool executor.
+
+        Tools decorated with ``@tool`` self-register on import, so for skills
+        using that pattern we just need to import the module.  Skills using the
+        older ``TOOLS`` dict pattern are registered explicitly.
+        """
         from agentix.agent_runtime.tool_executor import register_tool
         for name in skill_names:
             try:
@@ -67,6 +87,7 @@ class SkillEngine:
                 if hasattr(module, "TOOLS"):
                     for tool_name, fn in module.TOOLS.items():
                         register_tool(tool_name, fn)
+                # @tool-decorated functions self-register on import; nothing extra needed
             except Exception as e:
                 logger.warning("Could not register tools for skill '%s': %s", name, e)
 

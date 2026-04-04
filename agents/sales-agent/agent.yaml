@@ -1,0 +1,192 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+
+metadata:
+  name: "sales-agent"
+  version: "1.0.0"
+  description: >
+    Elite B2B sales intelligence agent. Given a target segment or a list of
+    LinkedIn URLs, it researches each prospect's profile, recent activity, and
+    company news, scores them against the ICP, and produces hyper-personalised
+    outreach messages — optionally sending them directly via LinkedIn.
+  team: "revenue"
+  tags: [sales, linkedin, outbound, research, browser]
+  owner: "sales-ops@yourcompany.com"
+
+# ---------------------------------------------------------------------------
+# System prompt — loaded from ordered markdown files (skill.md pattern).
+# Each file is appended as a separate section separated by "---".
+# Edit the .md files directly; no code changes needed.
+# ---------------------------------------------------------------------------
+spec:
+  prompt_sections:
+    - file: prompts/identity.md           # Who Aria is and core principles
+    - file: prompts/product_context.md    # ICP, value props, objections
+    - file: prompts/research_methodology.md  # Step-by-step research + scoring
+    - file: prompts/constraints.md        # Hard limits and ethics
+
+  # -------------------------------------------------------------------------
+  # Model
+  # -------------------------------------------------------------------------
+  model:
+    provider: anthropic
+    model_id: claude-sonnet-4-6
+    temperature: 0.4        # slightly creative for message writing, not random
+    max_tokens: 8192        # long enough for multi-prospect research reports
+
+  # -------------------------------------------------------------------------
+  # Skills activated for this agent
+  # -------------------------------------------------------------------------
+  skills:
+    - browser       # Playwright browser + LinkedIn tools
+    - web-search    # DuckDuckGo web search + fetch for news/articles
+    - file-ops      # Read skip_list.txt, write output reports
+
+  # -------------------------------------------------------------------------
+  # Tools the agent is allowed to call
+  # -------------------------------------------------------------------------
+  tools:
+    # Browser / LinkedIn
+    - browser_navigate
+    - browser_get_text
+    - browser_get_links
+    - browser_click
+    - browser_fill
+    - browser_scroll
+    - browser_screenshot
+    - browser_wait
+    - browser_evaluate
+    - browser_close
+    - linkedin_get_profile
+    - linkedin_get_feed_posts
+    - linkedin_search_people
+    - linkedin_send_message
+
+    # Web research
+    - web_search
+    - web_fetch
+
+    # File I/O — read skip list, write prospect reports
+    - file_read
+    - file_write
+    - file_list
+
+  # -------------------------------------------------------------------------
+  # Memory — persist research state across multi-turn conversations
+  # -------------------------------------------------------------------------
+  memory:
+    short_term: sqlite
+    scope: session            # one memory space per trigger session
+    max_history_turns: 20     # keep full research thread in context
+    ttl_sec: 86400            # 24 hours — one working day
+
+  # -------------------------------------------------------------------------
+  # Execution limits
+  # -------------------------------------------------------------------------
+  execution:
+    timeout_sec: 600          # 10 min — deep research runs take time
+    max_tool_calls: 80        # research-heavy: profile + posts + web search per prospect
+    max_iterations: 40        # agentic loop iterations
+
+  retry:
+    max_attempts: 2
+    backoff: exponential
+
+  # -------------------------------------------------------------------------
+  # Input / output schema
+  # -------------------------------------------------------------------------
+  input_schema:
+    type: object
+    properties:
+      mode:
+        type: string
+        enum: [discover, research, outreach, full]
+        description: >
+          discover  — find matching prospects only, no research or messages.
+          research  — research provided profiles, produce scored reports.
+          outreach  — research + draft messages + send (requires confirmation).
+          full      — discover + research + outreach in one run.
+        default: research
+
+      target_segment:
+        type: object
+        description: "ICP filters for prospect discovery (used when mode includes 'discover')"
+        properties:
+          keywords:    { type: string,  example: "VP Sales SaaS Series B" }
+          title:       { type: string,  example: "VP of Sales" }
+          company:     { type: string,  example: "Acme Corp" }
+          location:    { type: string,  example: "San Francisco Bay Area" }
+          max_results: { type: integer, default: 10 }
+
+      prospect_urls:
+        type: array
+        items: { type: string }
+        description: "LinkedIn profile URLs to research (used when mode includes 'research')"
+        example:
+          - "https://www.linkedin.com/in/johndoe/"
+          - "https://www.linkedin.com/in/janedoe/"
+
+      send_messages:
+        type: boolean
+        default: false
+        description: >
+          If true, the agent will send connection requests / messages after
+          producing drafts. If false (default), only drafts are returned for
+          human review. Always start with false on the first run.
+
+      product_override:
+        type: string
+        description: >
+          Optional: override the product description for this run
+          (e.g. for A/B testing different value prop angles).
+
+    required: [mode]
+
+  output_schema:
+    type: object
+    properties:
+      prospects_found:    { type: integer }
+      prospects_research: { type: integer }
+      messages_drafted:   { type: integer }
+      messages_sent:      { type: integer }
+      report:
+        type: string
+        description: "Full markdown research report with ICP scores and drafted messages"
+      skipped:
+        type: array
+        items: { type: string }
+        description: "Profiles skipped (with reason)"
+      errors:
+        type: array
+        items: { type: string }
+
+  # -------------------------------------------------------------------------
+  # Channel triggers
+  # -------------------------------------------------------------------------
+  triggers:
+    - channel: http_webhook     # POST /trigger with JSON body matching input_schema
+    - channel: slack            # @aria research https://linkedin.com/in/...
+    - channel: email            # forward a LinkedIn profile URL to the agent inbox
+
+  # -------------------------------------------------------------------------
+  # Output routing
+  # -------------------------------------------------------------------------
+  output:
+    # Write a dated markdown report to disk for every run
+    file_report:
+      enabled: true
+      path: "data/sales-reports/{date}/{run_id}.md"
+
+    # Post a summary to Slack #sales-intel channel
+    slack_summary:
+      enabled: false            # set to true and configure SLACK_SALES_CHANNEL
+      channel: "#sales-intel"
+      format: summary           # summary | full_report
+
+  # -------------------------------------------------------------------------
+  # Rate limits (enforced by the watchdog — prevents accidental spam runs)
+  # -------------------------------------------------------------------------
+  rate_limits:
+    max_runs_per_hour: 2
+    max_messages_per_day: 20   # hard ceiling across all runs today
+    cooldown_per_prospect_hours: 72   # don't contact the same person within 3 days

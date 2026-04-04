@@ -383,20 +383,81 @@ LOCAL_LLM_API_KEY=ollama
 
 ---
 
+## Agent Definition
+
+### Inline system prompt (simple)
+
+```yaml
+spec:
+  system_prompt: |
+    You are a helpful assistant. Answer concisely and accurately.
+```
+
+### File-based system prompt (recommended for complex agents)
+
+Point to a single markdown file — the same pattern used by `CLAUDE.md` and Anthropic skill context files:
+
+```yaml
+spec:
+  system_prompt_file: prompts/system.md   # relative to the agent YAML
+```
+
+### Sectioned prompt (most powerful)
+
+Compose the system prompt from multiple ordered markdown files. Each file is a
+self-contained concern — identity, product context, methodology, constraints — and
+the runtime concatenates them with `---` separators:
+
+```yaml
+spec:
+  prompt_sections:
+    - file: prompts/identity.md           # Who the agent is
+    - file: prompts/product_context.md    # What it's selling / doing
+    - file: prompts/methodology.md        # Step-by-step instructions
+    - file: prompts/constraints.md        # Hard limits and ethics
+    - text: "Always respond in English."  # Inline override
+```
+
+This lets non-engineers edit agent behaviour by updating `.md` files without touching YAML or code.
+Skill instructions from built-in/community skills are appended automatically after the agent's own prompt sections.
+
+---
+
 ## Skills & Tools
 
 ### Built-in skills
 
-| Skill | Tools provided |
-|---|---|
-| `web-search` | `web_search`, `web_fetch` |
-| `file-ops` | `file_read`, `file_write`, `file_list` |
-| `email-composer` | `send_email`, `draft_email` |
+| Skill | Tools provided | Requires |
+|---|---|---|
+| `web-search` | `web_search`, `web_fetch` | nothing |
+| `file-ops` | `file_read`, `file_write`, `file_list` | nothing |
+| `email-composer` | `send_email`, `draft_email` | SMTP config |
+| `browser` | `browser_navigate`, `browser_get_text`, `browser_get_links`, `browser_click`, `browser_fill`, `browser_scroll`, `browser_screenshot`, `browser_wait`, `browser_evaluate`, `browser_close`, `linkedin_get_profile`, `linkedin_get_feed_posts`, `linkedin_search_people`, `linkedin_send_message` | `playwright` |
+
+### Browser skill setup
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Save LinkedIn session cookies (one-time):
+```bash
+# Run with headless=false, log in manually, then save cookies
+BROWSER_HEADLESS=false agentix agent run sales-agent --text "save cookies"
+# or use the CLI helper:
+agentix browser save-cookies --output data/linkedin_cookies.json
+```
+
+Point the agent at them:
+```bash
+export BROWSER_COOKIES_FILE=data/linkedin_cookies.json
+```
 
 ### Custom tools
 
 ```python
-from agentix.agent_runtime.tool_executor import tool, register_tool
+from agentix.agent_runtime.tool_executor import tool
 
 @tool(
     name="get_weather",
@@ -404,7 +465,6 @@ from agentix.agent_runtime.tool_executor import tool, register_tool
     input_schema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]},
 )
 def get_weather(city: str) -> dict:
-    # your implementation
     return {"city": city, "temp_c": 22, "condition": "sunny"}
 ```
 
