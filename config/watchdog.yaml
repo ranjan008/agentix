@@ -1,74 +1,59 @@
 watchdog:
-  # Infrastructure tier: lite | standard | enterprise
-  infra_tier: "lite"
-
-  # SQLite database path (Lite tier)
+  # ─── Infrastructure ─────────────────────────────────────────────────────────
+  infra_tier: "lite"          # SQLite, single-process, zero external deps
   db_path: "data/agentix.db"
-
-  # Agent process spawn mode (Phase 1: process only)
   spawn_mode: "process"
-
-  # Maximum concurrent agent processes
   max_concurrent_agents: 10
-
-  # Seconds to wait for an agent to complete before killing it
   shutdown_timeout_sec: 120
 
-  # Per-identity rate limiting
+  # ─── Rate limiting ───────────────────────────────────────────────────────────
   rate_limit:
     max_requests: 60
     window_sec: 60
 
-  # Security settings
+  # ─── Security & RBAC ────────────────────────────────────────────────────────
   security:
-    # Set to true to require valid JWT on all HTTP webhook requests
-    enforce_rbac: false
-    # Name of the environment variable holding the JWT signing secret
+    enforce_rbac: true                  # JWT required on HTTP webhook; RBAC enforced
     jwt_secret_env: "JWT_SECRET"
     pre_check_timeout_ms: 100
-    # Path to custom RBAC policy rules (OPA-style YAML)
     policy_file: "config/policy.yaml"
 
-  # Secrets vault configuration
+  # ─── Secrets backend ─────────────────────────────────────────────────────────
   secrets:
-    # backend: env | file | vault | aws_sm
-    backend: "env"
-    # For 'file' backend:
-    # path: "data/secrets.json"
-    # For 'vault' backend:
-    # vault_addr: "http://vault:8200"
-    # vault_token_env: "VAULT_TOKEN"
-    # mount_point: "secret"
-    # For 'aws_sm' backend:
-    # region: "us-east-1"
-    # prefix: "agentix/"
+    backend: "env"                      # reads from .env / shell env vars
 
-  # Standard tier (PostgreSQL + Redis) — uncomment to upgrade from Lite
-  # infra_tier: "standard"
-  # database_url: "postgresql://user:pass@localhost:5432/agentix"
-  # redis_url: "redis://localhost:6379/0"
-
-  # Scheduler
+  # ─── Scheduler ───────────────────────────────────────────────────────────────
   scheduler:
     tick_sec: 5
     schedules_dir: "schedules"
 
-  # Event bus subscriptions (agent-to-agent event cascade)
-  # event_subscriptions:
-  #   - event: "order.created"
-  #     agent: "notification-agent"
-
-  # Ingress channel adapters
+  # ─── Channels ────────────────────────────────────────────────────────────────
   channels:
+    # HTTP webhook — also used for local curl tests and ngrok
     - type: "http_webhook"
       port: 8080
       path: "/trigger"
       # Uncomment to require HMAC-signed webhooks:
       # hmac_secret: "${WEBHOOK_HMAC_SECRET}"
 
-    # Slack (Socket Mode) — uncomment and set env vars to enable
-    # - type: "slack"
-    #   app_token: "${SLACK_APP_TOKEN}"       # xapp-...
-    #   bot_token: "${SLACK_BOT_TOKEN}"       # xoxb-...
-    #   signing_secret: "${SLACK_SIGNING_SECRET}"
-    #   default_agent_id: "my-agent"
+    # Telegram Bot API
+    # Dev:  no PUBLIC_URL set → auto long-polling (no ngrok needed)
+    # Prod: set PUBLIC_URL env var → registers webhook automatically
+    # Requires: TELEGRAM_BOT_TOKEN (from @BotFather)
+    - type: "telegram"
+      default_agent_id: "telegram-agent"
+      telegram_webhook_path: "/channels/telegram"
+      # public_url: "${PUBLIC_URL}"          # uncomment for webhook mode
+
+# ─── LLM Router ──────────────────────────────────────────────────────────────
+llm:
+  default_provider: anthropic
+  providers:
+    anthropic:
+      api_key: "${ANTHROPIC_API_KEY}"
+      model: "claude-haiku-4-5"         # fastest / cheapest
+      # model: "claude-sonnet-4-6"     # balanced: speed + capability
+      # model: "claude-opus-4-6"       # most powerful
+  routing:
+    fallback_chain:
+      - anthropic

@@ -1,34 +1,68 @@
-# Agentix RBAC Policy — custom rules (evaluated on top of built-in role permissions)
+# Agentix RBAC Policy — custom rules evaluated on top of built-in role permissions
 #
-# Rules are evaluated in order:
-#   1. deny rules always win
-#   2. allow rules supplement the built-in role matrix
+# Rule evaluation order:
+#   1. deny rules always win (evaluated first)
+#   2. allow rules supplement built-in role matrix
 #
-# Supported glob patterns in all list fields (e.g. "acme-*", "support-*")
+# Glob patterns supported in all list fields: "acme-*", "support-*", "*"
 #
-# Built-in roles and their default permissions:
-#   end-user       → trigger:invoke (own scope), agent:list
+# Built-in role permissions (for reference):
+#   end-user       → trigger:invoke (own scope only), agent:list
 #   operator       → + skill:activate, tool:call, audit:read
 #   agent-author   → + agent:register, skill:install, secret:read
 #   tenant-admin   → + tenant:manage
 #   platform-admin → all permissions
 
 rules:
-  # Example: deny all triggers from the 'guest' role
+  # ── Deny rules (always win) ────────────────────────────────────────────────
+
+  # Block unauthenticated / guest callers from invoking any agent
   - effect: "deny"
     roles: ["guest"]
     actions: ["trigger:invoke"]
     agent_ids: ["*"]
     tenant_ids: ["*"]
 
-  # Example: allow a service account to trigger only the report-generator agent
-  # - effect: "allow"
-  #   roles: ["reporting-service"]
-  #   actions: ["trigger:invoke"]
-  #   agent_ids: ["report-generator"]
-  #   tenant_ids: ["acme-corp"]
+  # End-users cannot call tools directly (they go through agent invoke only)
+  - effect: "deny"
+    roles: ["end-user"]
+    actions: ["tool:call"]
+    agent_ids: ["*"]
+    tenant_ids: ["*"]
 
-  # Example: deny all tool calls from end-user role
-  # - effect: "deny"
-  #   roles: ["end-user"]
-  #   actions: ["tool:call"]
+  # End-users cannot read secrets
+  - effect: "deny"
+    roles: ["end-user"]
+    actions: ["secret:read"]
+    agent_ids: ["*"]
+    tenant_ids: ["*"]
+
+  # ── Allow rules (supplement built-in matrix) ───────────────────────────────
+
+  # Telegram channel users can trigger the telegram-agent and activate skills
+  - effect: "allow"
+    roles: ["telegram-user"]
+    actions: ["trigger:invoke", "skill:activate"]
+    agent_ids: ["telegram-agent"]
+    tenant_ids: ["*"]
+
+  # CI / automation service account can trigger telegram-agent on the default tenant
+  - effect: "allow"
+    roles: ["ci-service"]
+    actions: ["trigger:invoke"]
+    agent_ids: ["telegram-agent"]
+    tenant_ids: ["default"]
+
+  # Internal scheduler service can trigger any agent
+  - effect: "allow"
+    roles: ["scheduler-service"]
+    actions: ["trigger:invoke"]
+    agent_ids: ["*"]
+    tenant_ids: ["*"]
+
+  # Operators can read audit logs across all agents in their tenant
+  - effect: "allow"
+    roles: ["operator"]
+    actions: ["audit:read"]
+    agent_ids: ["*"]
+    tenant_ids: ["*"]

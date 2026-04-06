@@ -56,11 +56,16 @@ class AnthropicProvider(BaseLLMProvider):
 
         tool_calls = []
         text_parts = []
+        # Build serialisable content blocks to preserve tool_use blocks
+        # so the agentic loop can include them verbatim in the assistant message.
+        raw_blocks = []
         for block in resp.content:
             if block.type == "text":
                 text_parts.append(block.text)
+                raw_blocks.append({"type": "text", "text": block.text})
             elif block.type == "tool_use":
                 tool_calls.append(ToolCall(id=block.id, name=block.name, input=block.input))
+                raw_blocks.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.input})
 
         return LLMResponse(
             content="\n".join(text_parts),
@@ -70,5 +75,5 @@ class AnthropicProvider(BaseLLMProvider):
             provider=self.provider_name,
             input_tokens=resp.usage.input_tokens,
             output_tokens=resp.usage.output_tokens,
-            raw=resp,
+            raw={"response": resp, "blocks": raw_blocks},
         )

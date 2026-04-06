@@ -28,6 +28,32 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# No-op fallbacks (when opentelemetry not installed)
+# ---------------------------------------------------------------------------
+
+class _NoOpSpan:
+    def set_attribute(self, *a, **kw): pass
+    def set_status(self, *a, **kw): pass
+    def __enter__(self): return self
+    def __exit__(self, *a): pass
+
+
+class _NoOpTracer:
+    def start_as_current_span(self, name, **kwargs): return _NoOpSpan()
+    def start_span(self, name, **kwargs): return _NoOpSpan()
+
+
+class _NoOpCounter:
+    def add(self, *a, **kw): pass
+    def record(self, *a, **kw): pass
+
+
+class _NoOpMeter:
+    def create_counter(self, *a, **kw): return _NoOpCounter()
+    def create_histogram(self, *a, **kw): return _NoOpCounter()
+
+
+# ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
 
@@ -187,27 +213,3 @@ def get_meter():
     return _meter
 
 
-# ---------------------------------------------------------------------------
-# No-op fallbacks (when opentelemetry not installed)
-# ---------------------------------------------------------------------------
-
-class _NoOpSpan:
-    def set_attribute(self, *a, **kw): pass
-    def set_status(self, *a, **kw): pass
-    def __enter__(self): return self
-    def __exit__(self, *a): pass
-
-
-class _NoOpTracer:
-    def start_as_current_span(self, name, **kwargs): return _NoOpSpan()
-    def start_span(self, name, **kwargs): return _NoOpSpan()
-
-
-class _NoOpMeter:
-    def create_counter(self, *a, **kw): return _NoOpCounter()
-    def create_histogram(self, *a, **kw): return _NoOpCounter()
-
-
-class _NoOpCounter:
-    def add(self, *a, **kw): pass
-    def record(self, *a, **kw): pass

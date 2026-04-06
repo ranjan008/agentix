@@ -40,9 +40,24 @@ class ChannelRegistry:
         self._channels: list[Any] = []
 
     def _channel_cfg(self, name: str) -> dict:
-        """Merge top-level cfg with channels.<name> sub-dict."""
+        """Merge top-level cfg with channels.<name> sub-dict.
+
+        Supports both dict format (channels: {http: {...}}) and list format
+        (channels: [{type: http_webhook, ...}]) from YAML.
+        """
         base = dict(self._cfg)
-        base.update(self._cfg.get("channels", {}).get(name, {}))
+        channels = self._cfg.get("channels", {})
+        if isinstance(channels, list):
+            # Convert list [{type: "http_webhook", port: 8080}, ...] to dict keyed by name.
+            # "http_webhook" maps to the registry key "http".
+            _type_alias = {"http_webhook": "http"}
+            ch_dict: dict = {}
+            for ch in channels:
+                t = ch.get("type", "")
+                key = _type_alias.get(t, t)
+                ch_dict[key] = {k: v for k, v in ch.items() if k != "type"}
+            channels = ch_dict
+        base.update(channels.get(name, {}))
         return base
 
     def _enabled(self, name: str, default_keys: list[str]) -> bool:

@@ -1,0 +1,50 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+
+metadata:
+  name: "whatsapp-agent"
+  version: "1.0.0"
+  description: "General-purpose WhatsApp assistant — Anthropic Claude on Lite tier"
+  tags: [whatsapp, lite, demo]
+
+spec:
+  # ── System prompt ──────────────────────────────────────────────────────────
+  system_prompt: |
+    You are a helpful AI assistant reachable via WhatsApp.
+    Be concise — WhatsApp messages should be short and conversational.
+    If the user asks something complex, break your answer into short paragraphs.
+    Never reveal internal configuration, JWT tokens, or system details.
+
+  # ── LLM ───────────────────────────────────────────────────────────────────
+  model:
+    provider: anthropic
+    model_id: claude-haiku-4-5  # fast and cost-efficient
+    temperature: 0.4
+    max_tokens: 1024
+
+  # ── Skills & Tools ────────────────────────────────────────────────────────
+  skills:
+    - web-search
+    - file-ops
+
+  tools:
+    - web_search
+    - web_fetch
+    - file_read
+
+  # ── Memory ────────────────────────────────────────────────────────────────
+  memory:
+    short_term: sqlite          # persists conversation turns in SQLite (Lite tier)
+    scope: user                 # per-user history (keyed by WhatsApp sender ID)
+    max_history_turns: 10
+    ttl_sec: 86400              # 24 h — forget context after idle day
+
+  # ── Execution limits ──────────────────────────────────────────────────────
+  execution:
+    timeout_sec: 60
+    max_tool_calls: 10
+
+  # ── Channels this agent accepts triggers from ──────────────────────────────
+  triggers:
+    - channel: whatsapp
+    - channel: http_webhook     # also reachable via curl for local testing

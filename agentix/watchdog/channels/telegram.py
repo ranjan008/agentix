@@ -40,6 +40,7 @@ class TelegramChannel:
         self._secret_token: str = cfg.get("telegram_webhook_secret", "")
         self._public_url: str = cfg.get("public_url", "").rstrip("/")
         self._webhook_path: str = cfg.get("telegram_webhook_path", "/channels/telegram")
+        self._default_agent_id: str = cfg.get("default_agent_id", "")
         self._on_trigger = on_trigger
         self._app = app
         self._base = _TELEGRAM_API.format(token=self._token)
@@ -134,6 +135,7 @@ class TelegramChannel:
     async def _dispatch(self, update: dict) -> None:
         envelope = _normalise(update)
         if envelope:
+            envelope.payload["_agent_id"] = self._default_agent_id
             await self._on_trigger(envelope)
 
     # ------------------------------------------------------------------
