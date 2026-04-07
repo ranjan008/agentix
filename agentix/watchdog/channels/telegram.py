@@ -115,8 +115,15 @@ class TelegramChannel:
         async with aiohttp.ClientSession() as session:
             while self._running:
                 try:
-                    params = {"timeout": 30, "offset": offset, "allowed_updates": ["message", "callback_query"]}
-                    async with session.get(f"{self._base}/getUpdates", params=params, timeout=aiohttp.ClientTimeout(total=40)) as r:
+                    # Build as list of 2-tuples so aiohttp can repeat the
+                    # allowed_updates key — this also satisfies mypy's type stubs.
+                    params_list = [
+                        ("timeout", "30"),
+                        ("offset", str(offset)),
+                        ("allowed_updates", "message"),
+                        ("allowed_updates", "callback_query"),
+                    ]
+                    async with session.get(f"{self._base}/getUpdates", params=params_list, timeout=aiohttp.ClientTimeout(total=40)) as r:
                         data = await r.json()
                     if data.get("ok"):
                         for update in data.get("result", []):
