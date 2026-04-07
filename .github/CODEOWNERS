@@ -1,0 +1,29 @@
+# CODEOWNERS — automatic review requests for sensitive areas
+#
+# Syntax: <pattern>  <@user or @org/team>
+# Last matching rule wins.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything not matched below
+*                                   @ranjan008
+
+# Security subsystem — requires security-aware review
+agentix/security/                   @ranjan008
+agentix/watchdog/auth.py            @ranjan008
+agentix/watchdog/rbac_gateway.py    @ranjan008
+agentix/compliance/                 @ranjan008
+
+# LLM router — provider additions need core review
+agentix/llm/                        @ranjan008
+
+# Agent runtime loop — behaviour changes need core review
+agentix/agent_runtime/              @ranjan008
+
+# CI/CD pipeline — infra changes need maintainer sign-off
+.github/                            @ranjan008
+Dockerfile                          @ranjan008
+deploy/                             @ranjan008
+pyproject.toml                      @ranjan008
+
+# Dependency manifest
+requirements*.txt                   @ranjan008
