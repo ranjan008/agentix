@@ -15,9 +15,10 @@ data/
 *.db-wal
 
 # Secrets
-.env
 
 # Editor
 .vscode/
 .idea/
 *.swp
+config.bat
+node_modules
