@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/ranjan008/agentix/security/advisories/new
+    about: Please report security issues privately — do NOT open a public issue.
+  - name: Question / discussion
+    url: https://github.com/ranjan008/agentix/discussions
+    about: For usage questions, start a GitHub Discussion instead of opening an issue.
