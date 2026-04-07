@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,7 @@ def extract_text(response) -> str:
 
 
 def route_output(envelope: dict, text: str) -> None:
-    """
-    Route the agent's reply back to the caller's channel.
-    Phase 1: log to stdout (channels handle their own replies in later phases).
-    """
+    """Route the agent's reply back to the caller's channel."""
     channel = envelope["channel"]
     trigger_id = envelope["id"]
     agent_id = envelope["agent_id"]
@@ -34,7 +32,40 @@ def route_output(envelope: dict, text: str) -> None:
         "response": text,
     }
 
-    # Write structured output to stdout — the watchdog (or a channel adapter)
-    # can pick this up from the child process's stdout in future phases.
     print(json.dumps(output), flush=True)
     logger.info("Agent output: agent=%s trigger=%s len=%d chars", agent_id, trigger_id, len(text))
+
+    if channel == "telegram":
+        _reply_telegram(envelope, text)
+
+
+def _reply_telegram(envelope: dict, text: str) -> None:
+    """Send reply back to the Telegram chat that triggered this agent."""
+    import urllib.request
+    import urllib.error
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        logger.warning("TELEGRAM_BOT_TOKEN not set — cannot reply to Telegram")
+        return
+
+    # chat_id is stored in payload.context by the TriggerEnvelope normaliser
+    chat_id = (
+        envelope.get("payload", {}).get("context", {}).get("chat_id")
+    )
+    if not chat_id:
+        logger.warning("No chat_id in envelope — cannot reply to Telegram")
+        return
+
+    # Telegram has a 4096-char message limit
+    MAX_LEN = 4096
+    chunks = [text[i:i + MAX_LEN] for i in range(0, len(text), MAX_LEN)] if text else ["(no response)"]
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    for chunk in chunks:
+        payload = json.dumps({"chat_id": chat_id, "text": chunk}).encode()
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(req, timeout=10)
+        except urllib.error.URLError as exc:
+            logger.error("Failed to send Telegram reply: %s", exc)

@@ -166,8 +166,20 @@ class Watchdog:
 
         # Wait for shutdown signal
         loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._stop_event.set)
+        try:
+            # Unix only
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, self._stop_event.set)
+        except NotImplementedError:
+            # Windows fallback — signal.signal() is synchronous; use
+            # call_soon_threadsafe to safely set the asyncio Event.
+            def _win_handler(signum, frame):
+                loop.call_soon_threadsafe(self._stop_event.set)
+            signal.signal(signal.SIGINT, _win_handler)
+            try:
+                signal.signal(signal.SIGTERM, _win_handler)
+            except (OSError, ValueError):
+                pass  # SIGTERM may not be available on Windows
 
         await self._stop_event.wait()
         scheduler_task.cancel()

@@ -1,0 +1,51 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+
+metadata:
+  name: "telegram-agent"
+  version: "1.0.0"
+  description: "Personal Telegram assistant — Anthropic Claude Haiku on Lite tier"
+  tags: [telegram, lite, personal]
+
+spec:
+  # ── System prompt ──────────────────────────────────────────────────────────
+  system_prompt: |
+    You are a helpful personal AI assistant reachable via Telegram.
+    Be concise and conversational. Use plain text — avoid heavy markdown
+    since Telegram renders it inconsistently in all clients.
+    If answering something long, break it into short paragraphs.
+    Never reveal internal config, JWT tokens, or system details.
+
+  # ── LLM ───────────────────────────────────────────────────────────────────
+  model:
+    provider: anthropic
+    model_id: claude-haiku-4-5   # fast and cost-efficient
+    temperature: 0.4
+    max_tokens: 1024
+
+  # ── Skills & Tools ────────────────────────────────────────────────────────
+  skills:
+    - web-search
+    - file-ops
+
+  tools:
+    - web_search
+    - web_fetch
+    - file_read
+
+  # ── Memory ────────────────────────────────────────────────────────────────
+  memory:
+    short_term: sqlite           # persists turns in SQLite (Lite tier)
+    scope: user                  # per-user history keyed by Telegram user_id
+    max_history_turns: 10
+    ttl_sec: 86400               # 24 h idle TTL
+
+  # ── Execution limits ──────────────────────────────────────────────────────
+  execution:
+    timeout_sec: 60
+    max_tool_calls: 10
+
+  # ── Channels ──────────────────────────────────────────────────────────────
+  triggers:
+    - channel: telegram
+    - channel: http_webhook      # also testable via curl locally

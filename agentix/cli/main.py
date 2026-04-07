@@ -56,6 +56,15 @@ def dev_start(config: str, port: int | None):
         click.echo(f"Config not found: {config}. Creating default config…")
         _create_default_config(config, port or 8080)
 
+    # Auto-load .env from cwd so credentials don't need to be exported manually
+    try:
+        from dotenv import load_dotenv
+        loaded = load_dotenv(dotenv_path=".env", override=False)
+        if loaded:
+            click.echo("Loaded environment from .env")
+    except ImportError:
+        pass
+
     click.echo(f"Starting Agentix watchdog (config={config})")
 
     if port:

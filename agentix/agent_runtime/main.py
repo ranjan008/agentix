@@ -107,8 +107,14 @@ def run(envelope: dict) -> None:
                 break
 
             if response.stop_reason == "tool_use" and response.tool_calls:
-                # Append assistant message
-                messages.append({"role": "assistant", "content": response.content or ""})
+                # Append assistant message with the full content blocks (text + tool_use).
+                # Anthropic requires tool_use blocks to be present here so the subsequent
+                # tool_result blocks have a matching tool_use_id to reference.
+                raw_blocks = None
+                if isinstance(response.raw, dict):
+                    raw_blocks = response.raw.get("blocks")
+                assistant_content = raw_blocks if raw_blocks else (response.content or "")
+                messages.append({"role": "assistant", "content": assistant_content})
 
                 # Execute each tool call
                 tool_results = []

@@ -441,16 +441,16 @@ class IdentityResolver:
         # Local JWT (Phase 1/2 fallback)
         if scheme == "bearer" and self._local_secret:
             try:
-                claims = pyjwt.decode(credential, self._local_secret, algorithms=["HS256"])
+                jwt_payload: dict = pyjwt.decode(credential, self._local_secret, algorithms=["HS256"])
                 return IdentityClaims(
-                    identity_id=claims.get("sub", "unknown"),
-                    email=claims.get("email", ""),
-                    name=claims.get("name", ""),
-                    roles=claims.get("roles", ["end-user"]),
-                    tenant_id=claims.get("tenant_id", "default"),
+                    identity_id=jwt_payload.get("sub", "unknown"),
+                    email=jwt_payload.get("email", ""),
+                    name=jwt_payload.get("name", ""),
+                    roles=jwt_payload.get("roles", ["end-user"]),
+                    tenant_id=jwt_payload.get("tenant_id", "default"),
                     provider="local_jwt",
-                    raw_claims=claims,
-                    expires_at=float(claims.get("exp", 0)),
+                    raw_claims=jwt_payload,
+                    expires_at=float(jwt_payload.get("exp", 0)),
                 )
             except pyjwt.InvalidTokenError as e:
                 raise AuthenticationError(f"Invalid token: {e}")
