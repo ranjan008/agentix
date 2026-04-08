@@ -51,7 +51,13 @@ def _resolve_identity(credentials: HTTPAuthorizationCredentials | None) -> dict:
     if jwt_secret:
         claims = validate_jwt(token, jwt_secret)
         if claims:
-            return {"identity_id": claims.get("sub", "unknown"), "roles": claims.get("roles", ["end-user"]), "tenant_id": claims.get("tenant_id", "default")}
+            return {
+                "identity_id": claims.get("sub", "unknown"),
+                "email": claims.get("email", claims.get("sub", "unknown")),
+                "name": claims.get("name"),
+                "roles": claims.get("roles", ["end-user"]),
+                "tenant_id": claims.get("tenant_id", "default"),
+            }
 
     raise HTTPException(status_code=401, detail="Invalid or expired token")
 

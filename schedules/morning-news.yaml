@@ -1,0 +1,14 @@
+apiVersion: "agentix/v1"
+kind: "Schedule"
+metadata:
+  name: "morning-news"
+  tenant_id: "default"
+spec:
+  type: "cron"
+  expression: "30 1 * * *"   # 07:00 IST (UTC+5:30)
+  timezone: "Asia/Kolkata"
+  agent: "news-digest-agent"
+  payload:
+    text: "Generate the morning news digest across all configured topics and send to Telegram."
+    context:
+      mode: "morning_digest"

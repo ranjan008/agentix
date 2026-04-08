@@ -193,7 +193,7 @@ class Scheduler:
         next_run = _cron_next(expression)
         with self._tx() as cur:
             cur.execute(
-                """INSERT INTO schedules
+                """INSERT OR IGNORE INTO schedules
                    (id, name, type, spec, agent_id, payload, tenant_id, run_as_role, next_run_at, created_at)
                    VALUES (?, ?, 'cron', ?, ?, ?, ?, ?, ?, ?)""",
                 (sid, name, json.dumps({"expression": expression, "timezone": timezone}),

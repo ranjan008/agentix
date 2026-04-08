@@ -2,6 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900 font-sans;
+@layer base {
+  body {
+    @apply bg-slate-50 text-gray-900 antialiased;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-sm;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700
+           text-white font-medium rounded-xl px-4 py-2.5 text-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-50
+           text-gray-700 font-medium rounded-xl px-4 py-2.5 text-sm border border-gray-200
+           transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-gray-300;
+  }
+
+  .input {
+    @apply w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-4 py-2.5 text-sm
+           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+           transition-all duration-150 placeholder:text-gray-400;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-green  { @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200; }
+  .badge-blue   { @apply bg-blue-50 text-blue-700 ring-1 ring-blue-200; }
+  .badge-yellow { @apply bg-amber-50 text-amber-700 ring-1 ring-amber-200; }
+  .badge-red    { @apply bg-red-50 text-red-700 ring-1 ring-red-200; }
+  .badge-gray   { @apply bg-gray-100 text-gray-600 ring-1 ring-gray-200; }
+  .badge-purple { @apply bg-violet-50 text-violet-700 ring-1 ring-violet-200; }
 }

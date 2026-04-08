@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import { Bot, Trash2, RefreshCw, Cpu, Tag } from 'lucide-react'
 import { api } from '../api/client'
+import { Page, PageHeader, Card, Table, TableRow, Td, EmptyState, Skeleton, MonoId, Btn } from '../components/ui'
 
 export default function Agents() {
   const qc = useQueryClient()
@@ -12,63 +12,89 @@ export default function Agents() {
   })
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Agents</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => qc.invalidateQueries({ queryKey: ['agents'] })}
-            className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-100"
-          >
-            <RefreshCw size={14} /> Refresh
-          </button>
-        </div>
-      </div>
+    <Page>
+      <PageHeader
+        title="Agents"
+        subtitle={`${agents.length} registered agent${agents.length !== 1 ? 's' : ''}`}
+        actions={
+          <Btn onClick={() => qc.invalidateQueries({ queryKey: ['agents'] })} size="sm">
+            <RefreshCw size={13} /> Refresh
+          </Btn>
+        }
+      />
 
-      {isLoading ? (
-        <p className="text-gray-400">Loading…</p>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                {['Agent ID', 'Description', 'Skills', 'Version', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {agents.map((a: any) => (
-                <tr key={a.agent_id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs">{a.agent_id}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.spec?.description || a.metadata?.description || '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(a.spec?.skills || []).map((s: string) => (
-                        <span key={s} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs">{s}</span>
-                      ))}
+      <Card>
+        {isLoading ? <Skeleton rows={4} cols={5} /> : (
+          <Table headers={['Agent', 'Description', 'Model', 'Skills', 'Version', '']}>
+            {agents.length === 0 && (
+              <tr><td colSpan={6}>
+                <EmptyState icon={Bot} title="No agents registered"
+                  desc="Register an agent YAML with `agentix agent register agents/my-agent.yaml`" />
+              </td></tr>
+            )}
+            {agents.map((a: any) => {
+              const id = a.id ?? a.name ?? a.agent_id
+              const spec = a.spec ?? {}
+              const meta = a.metadata ?? {}
+              const skills: string[] = spec.skills ?? []
+              const model = spec.llm?.model ?? spec.model ?? meta.model ?? null
+
+              return (
+                <TableRow key={id}>
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                        <Bot size={15} className="text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{id}</p>
+                        <MonoId value={meta.name ?? id} len={22} />
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">{a.metadata?.version || '—'}</td>
-                  <td className="px-4 py-3">
+                  </Td>
+                  <Td className="max-w-xs">
+                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                      {spec.description ?? meta.description ?? '—'}
+                    </p>
+                  </Td>
+                  <Td>
+                    {model ? (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <Cpu size={11} className="text-gray-400" />
+                        {model}
+                      </div>
+                    ) : <span className="text-gray-300 text-xs">—</span>}
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1">
+                      {skills.length === 0
+                        ? <span className="text-gray-300 text-xs">—</span>
+                        : skills.map((s: string) => (
+                          <span key={s} className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-50 text-violet-700 rounded-full text-[10px] font-medium border border-violet-100">
+                            <Tag size={9} />{s}
+                          </span>
+                        ))
+                      }
+                    </div>
+                  </Td>
+                  <Td>
+                    <span className="text-xs text-gray-400">{meta.version ?? a.version ?? '—'}</span>
+                  </Td>
+                  <Td>
                     <button
-                      onClick={() => {
-                        if (confirm(`Delete agent "${a.agent_id}"?`)) deleteMut.mutate(a.agent_id)
-                      }}
-                      className="text-red-400 hover:text-red-600 transition-colors"
+                      onClick={() => { if (window.confirm(`Delete agent "${id}"?`)) deleteMut.mutate(id) }}
+                      title="Delete agent"
+                      className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
-                  </td>
-                </tr>
-              ))}
-              {agents.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No agents registered</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+                  </Td>
+                </TableRow>
+              )
+            })}
+          </Table>
+        )}
+      </Card>
+    </Page>
   )
 }

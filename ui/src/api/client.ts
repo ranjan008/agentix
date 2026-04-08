@@ -70,4 +70,19 @@ export const api = {
   },
   triggerStats: (hours = 24) => request<any>(`/metrics/triggers?hours=${hours}`),
   agentStats: () => request<any[]>('/metrics/agents'),
+
+  // Chat
+  chatSend: (agent_id: string, message: string) =>
+    request<{ trigger_id: string; status: string }>('/chat/send', {
+      method: 'POST',
+      body: JSON.stringify({ agent_id, message }),
+    }),
+  chatPoll: (trigger_id: string) =>
+    request<{ trigger_id: string; status: string; response?: string }>(`/chat/${trigger_id}`),
+
+  // Auth
+  authConfig: () => request<any>('/auth/config'),
+  authLogin: (email: string, password: string) =>
+    request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  authMe: () => request<any>('/auth/me'),
 }

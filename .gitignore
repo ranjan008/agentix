@@ -17,6 +17,12 @@ data/
 # Secrets
 .env
 
+# Node / UI
+node_modules/
+ui/dist/
+ui/.vite/
+*.tsbuildinfo
+
 # Editor
 .vscode/
 .idea/

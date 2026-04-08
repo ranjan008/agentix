@@ -35,6 +35,14 @@ def route_output(envelope: dict, text: str) -> None:
     print(json.dumps(output), flush=True)
     logger.info("Agent output: agent=%s trigger=%s len=%d chars", agent_id, trigger_id, len(text))
 
+    # Persist response in DB so the chat UI can poll for it
+    try:
+        from agentix.storage.state_store import StateStore
+        db_path = os.environ.get("AGENTIX_DB_PATH", "data/agentix.db")
+        StateStore(db_path).save_trigger_response(trigger_id, text)
+    except Exception as exc:
+        logger.warning("Could not persist trigger response: %s", exc)
+
     if channel == "telegram":
         _reply_telegram(envelope, text)
 

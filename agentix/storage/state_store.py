@@ -108,6 +108,12 @@ class StateStore:
     def _init_db(self) -> None:
         conn = self._connect()
         conn.executescript(_SCHEMA)
+        # Idempotent migration: add response column if missing
+        try:
+            conn.execute("ALTER TABLE triggers ADD COLUMN response TEXT")
+            conn.commit()
+        except Exception:
+            pass  # column already exists
         if not self._in_memory:
             conn.close()
 
@@ -211,6 +217,13 @@ class StateStore:
                     "UPDATE triggers SET status=?, finished_at=?, error=? WHERE id=?",
                     (status, now, error, trigger_id),
                 )
+
+    def save_trigger_response(self, trigger_id: str, response: str) -> None:
+        with self._cursor() as cur:
+            cur.execute(
+                "UPDATE triggers SET response=?, status='done', finished_at=? WHERE id=?",
+                (response, time.time(), trigger_id),
+            )
 
     def get_trigger(self, trigger_id: str) -> dict | None:
         with self._cursor() as cur:
