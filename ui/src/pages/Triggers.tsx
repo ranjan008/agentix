@@ -29,15 +29,15 @@ export default function Triggers() {
         subtitle="Execution history · live refresh every 5s"
         actions={
           <>
-            <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl px-3 py-1.5">
-              <Filter size={12} className="text-gray-400" />
+            <div className="flex items-center gap-1.5 bg-white/[0.06] rounded-xl px-3 py-1.5 border border-white/[0.06]">
+              <Filter size={12} className="text-slate-500" />
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="text-xs text-gray-600 bg-transparent focus:outline-none"
+                className="text-xs text-slate-400 bg-transparent focus:outline-none"
               >
                 {STATUSES.map(s => (
-                  <option key={s} value={s}>{s || 'All statuses'}</option>
+                  <option key={s} value={s} className="bg-slate-800">{s || 'All statuses'}</option>
                 ))}
               </select>
             </div>
@@ -53,8 +53,8 @@ export default function Triggers() {
           title={`${triggers.length} trigger${triggers.length !== 1 ? 's' : ''}`}
           subtitle={statusFilter ? `Filtered: ${statusFilter}` : 'All'}
           actions={
-            <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Live
             </span>
           }
@@ -72,17 +72,17 @@ export default function Triggers() {
                 <Td><MonoId value={t.id} len={20} /></Td>
                 <Td>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
-                    <span className="text-sm font-medium text-gray-800">{t.agent_id}</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0" />
+                    <span className="text-sm font-medium text-slate-300">{t.agent_id}</span>
                   </div>
                 </Td>
                 <Td>
-                  <span className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+                  <span className="text-xs text-slate-500 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/[0.06]">
                     {t.channel ?? '—'}
                   </span>
                 </Td>
                 <Td>
-                  <span className="text-xs text-gray-500">{t.caller?.identity_id ?? '—'}</span>
+                  <span className="text-xs text-slate-500">{t.caller?.identity_id ?? '—'}</span>
                 </Td>
                 <Td><StatusBadge status={t.status ?? 'unknown'} /></Td>
                 <Td><Timestamp value={t.created_at ?? t.timestamp} /></Td>
@@ -91,7 +91,7 @@ export default function Triggers() {
                     onClick={() => replayMut.mutate(t.id)}
                     disabled={replayMut.isPending}
                     title="Replay trigger"
-                    className="p-1.5 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-40"
+                    className="p-1.5 text-slate-700 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors disabled:opacity-40"
                   >
                     <RotateCcw size={14} />
                   </button>

@@ -23,12 +23,15 @@ export default function Audit() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Audit Log</h1>
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-xl font-bold text-slate-100 tracking-tight">Audit Log</h1>
+          <p className="mt-1 text-sm text-slate-500">Immutable HMAC-chained event trail</p>
+        </div>
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ${
           chainStatus?.chain_valid === false
-            ? 'bg-red-50 text-red-700'
-            : 'bg-green-50 text-green-700'
+            ? 'bg-red-500/10 text-red-400 border-red-500/20'
+            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
         }`}>
           {chainStatus?.chain_valid === false
             ? <><ShieldAlert size={16} /> Chain tampered</>
@@ -37,30 +40,38 @@ export default function Audit() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="card overflow-hidden">
         {isLoading ? (
-          <p className="p-6 text-gray-400">Loading…</p>
+          <div className="divide-y divide-white/[0.04]">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="px-5 py-4 flex gap-4">
+                {[...Array(5)].map((_, j) => (
+                  <div key={j} className={`h-4 bg-white/[0.06] rounded animate-pulse ${j === 0 ? 'w-32' : 'flex-1'}`} />
+                ))}
+              </div>
+            ))}
+          </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                 {['Event', 'Trigger ID', 'Agent', 'Actor', 'Timestamp'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
+                  <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {entries.map((e: any, i: number) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-2 font-mono text-xs text-indigo-600">{e.event_type ?? e.action ?? '—'}</td>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-400">{e.trigger_id ? String(e.trigger_id).slice(0, 16) : '—'}</td>
-                  <td className="px-4 py-2 text-xs">{e.agent_id ?? '—'}</td>
-                  <td className="px-4 py-2 text-xs text-gray-500">{e.identity_id ?? e.actor ?? '—'}</td>
-                  <td className="px-4 py-2 text-xs text-gray-400">{fmtTs(e.timestamp ?? e.ts)}</td>
+                <tr key={i} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.03] transition-colors">
+                  <td className="px-5 py-3 font-mono text-xs text-cyan-400">{e.event_type ?? e.action ?? '—'}</td>
+                  <td className="px-5 py-3 font-mono text-xs text-slate-500">{e.trigger_id ? String(e.trigger_id).slice(0, 16) : '—'}</td>
+                  <td className="px-5 py-3 text-xs text-slate-300">{e.agent_id ?? '—'}</td>
+                  <td className="px-5 py-3 text-xs text-slate-500">{e.identity_id ?? e.actor ?? '—'}</td>
+                  <td className="px-5 py-3 text-xs text-slate-500 font-mono">{fmtTs(e.timestamp ?? e.ts)}</td>
                 </tr>
               ))}
               {entries.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No audit entries</td></tr>
+                <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-600 text-sm">No audit entries</td></tr>
               )}
             </tbody>
           </table>

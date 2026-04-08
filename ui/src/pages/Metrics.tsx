@@ -9,13 +9,13 @@ function MetricTile({ label, value, sub, icon: Icon, color }: {
 }) {
   return (
     <div className="p-5 flex items-start gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color} shadow-lg`}>
         <Icon size={18} className="text-white" />
       </div>
       <div>
-        <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 mt-0.5 tabular-nums">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
+        <p className="text-2xl font-bold text-slate-100 mt-0.5 tabular-nums">{value}</p>
+        {sub && <p className="text-xs text-slate-600 mt-0.5">{sub}</p>}
       </div>
     </div>
   )
@@ -24,8 +24,8 @@ function MetricTile({ label, value, sub, icon: Icon, color }: {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm">
-      <p className="font-semibold text-gray-900 mb-1">{label}</p>
+    <div className="bg-slate-800 border border-white/[0.08] rounded-xl shadow-xl px-4 py-3 text-sm">
+      <p className="font-semibold text-slate-200 mb-1">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} style={{ color: p.color }} className="text-xs">
           {p.name}: <strong>{p.value}</strong>
@@ -35,7 +35,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981']
+const COLORS = ['#06b6d4', '#6366f1', '#8b5cf6', '#f59e0b', '#10b981']
 
 export default function Metrics() {
   const { data: stats } = useQuery({ queryKey: ['trigger-stats-24'], queryFn: () => api.triggerStats(24) })
@@ -69,26 +69,26 @@ export default function Metrics() {
       {/* Trigger stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Total (24h)', value: stats?.total ?? 0, icon: BarChart2, color: 'bg-slate-600' },
-          { label: 'Running', value: stats?.running ?? 0, icon: Activity, color: 'bg-blue-500' },
-          { label: 'Completed', value: stats?.done ?? 0, icon: CheckCircle2, color: 'bg-emerald-500' },
-          { label: 'Failed', value: stats?.failed ?? 0, icon: XCircle, color: 'bg-rose-500' },
+          { label: 'Total (24h)', value: stats?.total ?? 0,   icon: BarChart2,   color: 'bg-gradient-to-br from-slate-600 to-slate-800' },
+          { label: 'Running',    value: stats?.running ?? 0,  icon: Activity,    color: 'bg-gradient-to-br from-cyan-500 to-cyan-700' },
+          { label: 'Completed',  value: stats?.done ?? 0,     icon: CheckCircle2,color: 'bg-gradient-to-br from-emerald-500 to-emerald-700' },
+          { label: 'Failed',     value: stats?.failed ?? 0,   icon: XCircle,     color: 'bg-gradient-to-br from-rose-500 to-rose-700' },
         ].map(({ label, value, icon, color }) => (
           <Card key={label}>
-            <MetricTile label={label} value={value} icon={icon} color={`bg-gradient-to-br ${color} to-${color.split('-')[1]}-700`} />
+            <MetricTile label={label} value={value} icon={icon} color={color} />
           </Card>
         ))}
       </div>
 
       {/* Success rate + chart */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Success rate donut-like gauge */}
+        {/* Success rate gauge */}
         <Card>
           <CardHeader title="Success Rate" subtitle="Last 24 hours" />
           <div className="p-6 flex flex-col items-center justify-center">
             <div className="relative w-32 h-32">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3.2" />
+                <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3.2" />
                 <circle cx="18" cy="18" r="15.9" fill="none"
                   stroke={successRate >= 90 ? '#10b981' : successRate >= 70 ? '#f59e0b' : '#ef4444'}
                   strokeWidth="3.2"
@@ -98,13 +98,13 @@ export default function Metrics() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-gray-900">{successRate}%</span>
-                <span className="text-[10px] text-gray-400">success</span>
+                <span className="text-2xl font-bold text-slate-100">{successRate}%</span>
+                <span className="text-[10px] text-slate-500">success</span>
               </div>
             </div>
-            <div className="mt-4 flex gap-4 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />{stats?.done ?? 0} done</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />{stats?.failed ?? 0} failed</span>
+            <div className="mt-4 flex gap-4 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />{stats?.done ?? 0} done</span>
+              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500" />{stats?.failed ?? 0} failed</span>
             </div>
           </div>
         </Card>
@@ -114,17 +114,17 @@ export default function Metrics() {
           <CardHeader title="Agent Execution Counts" subtitle="All time" />
           {agentStats.length === 0 ? (
             <div className="py-16 text-center">
-              <BarChart2 size={28} className="mx-auto text-gray-200 mb-3" />
-              <p className="text-sm text-gray-400">No agent runs yet</p>
+              <BarChart2 size={28} className="mx-auto text-slate-700 mb-3" />
+              <p className="text-sm text-slate-500">No agent runs yet</p>
             </div>
           ) : (
             <div className="px-4 py-5">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={agentStats} margin={{ top: 4, right: 8, left: -16, bottom: 4 }} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="agent_id" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                  <XAxis dataKey="agent_id" tick={{ fontSize: 11, fill: '#475569' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#475569' }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                   <Bar dataKey="total" name="Total" radius={[6, 6, 0, 0]} maxBarSize={48}>
                     {agentStats.map((_: any, i: number) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />

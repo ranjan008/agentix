@@ -1,5 +1,5 @@
 /**
- * Shared UI primitives used across all pages.
+ * Shared UI primitives — dark AI agentic theme.
  */
 import { ReactNode } from 'react'
 import { LucideIcon } from 'lucide-react'
@@ -12,8 +12,8 @@ export function PageHeader({
   return (
     <div className="flex items-start justify-between mb-8">
       <div>
-        <h1 className="text-xl font-bold text-gray-900 tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+        <h1 className="text-xl font-bold text-slate-100 tracking-tight">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
     </div>
@@ -28,7 +28,7 @@ export function Page({ children }: { children: ReactNode }) {
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${className}`}>
+    <div className={`card overflow-hidden ${className}`}>
       {children}
     </div>
   )
@@ -36,10 +36,10 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 
 export function CardHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
       <div>
-        <p className="font-semibold text-gray-900 text-sm">{title}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+        <p className="font-semibold text-slate-200 text-sm">{title}</p>
+        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
@@ -48,29 +48,29 @@ export function CardHeader({ title, subtitle, actions }: { title: string; subtit
 
 // ── Table ────────────────────────────────────────────────────────────────────
 
-export function Table({ headers, children, colSpan }: {
-  headers: string[]; children: ReactNode; colSpan?: number
+export function Table({ headers, children }: {
+  headers: string[]; children: ReactNode
 }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-100 bg-gray-50/50">
+          <tr className="border-b border-white/[0.06] bg-white/[0.02]">
             {headers.map(h => (
-              <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-50">{children}</tbody>
+        <tbody className="divide-y divide-white/[0.04]">{children}</tbody>
       </table>
     </div>
   )
 }
 
 export function TableRow({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <tr className={`hover:bg-slate-50/80 transition-colors ${className}`}>{children}</tr>
+  return <tr className={`hover:bg-white/[0.03] transition-colors ${className}`}>{children}</tr>
 }
 
 export function Td({ children, className = '' }: { children?: ReactNode; className?: string }) {
@@ -80,11 +80,11 @@ export function Td({ children, className = '' }: { children?: ReactNode; classNa
 export function EmptyState({ icon: Icon, title, desc }: { icon: LucideIcon; title: string; desc?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-        <Icon size={22} className="text-gray-400" />
+      <div className="w-12 h-12 rounded-2xl bg-white/[0.05] flex items-center justify-center mb-4">
+        <Icon size={22} className="text-slate-600" />
       </div>
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      {desc && <p className="text-xs text-gray-400 mt-1 max-w-xs">{desc}</p>}
+      <p className="text-sm font-medium text-slate-400">{title}</p>
+      {desc && <p className="text-xs text-slate-600 mt-1 max-w-xs">{desc}</p>}
     </div>
   )
 }
@@ -92,14 +92,14 @@ export function EmptyState({ icon: Icon, title, desc }: { icon: LucideIcon; titl
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 const STATUS_MAP: Record<string, string> = {
-  done:     'badge badge-green',
-  running:  'badge badge-blue',
-  failed:   'badge badge-red',
-  queued:   'badge badge-yellow',
-  pending:  'badge badge-yellow',
-  standard: 'badge badge-gray',
+  done:      'badge badge-green',
+  running:   'badge badge-blue',
+  failed:    'badge badge-red',
+  queued:    'badge badge-yellow',
+  pending:   'badge badge-yellow',
+  standard:  'badge badge-gray',
   enterprise:'badge badge-purple',
-  lite:     'badge badge-gray',
+  lite:      'badge badge-gray',
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -114,11 +114,11 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function Skeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
   return (
-    <div className="divide-y divide-gray-50">
+    <div className="divide-y divide-white/[0.04]">
       {[...Array(rows)].map((_, i) => (
         <div key={i} className="px-5 py-4 flex gap-4">
           {[...Array(cols)].map((_, j) => (
-            <div key={j} className={`h-4 bg-gray-100 rounded animate-pulse ${j === 0 ? 'w-32' : 'flex-1'}`} />
+            <div key={j} className={`h-4 bg-white/[0.06] rounded animate-pulse ${j === 0 ? 'w-32' : 'flex-1'}`} />
           ))}
         </div>
       ))}
@@ -134,12 +134,12 @@ export function Btn({
   children: ReactNode; onClick?: () => void; variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
   size?: 'sm' | 'md'; disabled?: boolean; title?: string; className?: string
 }) {
-  const base = 'inline-flex items-center gap-1.5 font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-40 disabled:cursor-not-allowed'
+  const base = 'inline-flex items-center gap-1.5 font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed'
   const variants = {
-    primary:   'bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500 shadow-sm',
-    secondary: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 focus:ring-gray-300',
-    danger:    'bg-white hover:bg-red-50 text-red-600 border border-red-200 focus:ring-red-300',
-    ghost:     'text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:ring-gray-300',
+    primary:   'bg-cyan-500 hover:bg-cyan-400 text-slate-950 focus:ring-cyan-500/50 shadow-sm shadow-cyan-500/20',
+    secondary: 'bg-white/[0.05] hover:bg-white/[0.09] text-slate-300 border border-white/[0.08] focus:ring-slate-500/30',
+    danger:    'bg-transparent hover:bg-red-500/10 text-red-400 border border-red-500/20 focus:ring-red-500/30',
+    ghost:     'text-slate-500 hover:text-slate-300 hover:bg-white/[0.06] focus:ring-slate-500/30',
   }
   const sizes = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2 text-sm' }
   return (
@@ -153,9 +153,9 @@ export function Btn({
 // ── Mono ID ───────────────────────────────────────────────────────────────────
 
 export function MonoId({ value, len = 18 }: { value?: string; len?: number }) {
-  if (!value) return <span className="text-gray-300">—</span>
+  if (!value) return <span className="text-slate-700">—</span>
   return (
-    <span className="font-mono text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+    <span className="font-mono text-xs text-slate-400 bg-white/[0.05] px-2 py-0.5 rounded-md border border-white/[0.06]">
       {String(value).slice(0, len)}
     </span>
   )
@@ -164,13 +164,13 @@ export function MonoId({ value, len = 18 }: { value?: string; len?: number }) {
 // ── Timestamp ─────────────────────────────────────────────────────────────────
 
 export function Timestamp({ value }: { value?: string | number }) {
-  if (!value) return <span className="text-gray-300 text-xs">—</span>
+  if (!value) return <span className="text-slate-700 text-xs">—</span>
   const ms = typeof value === 'number' ? value * 1000 : new Date(value).getTime()
   const d = new Date(ms)
   return (
-    <span className="text-xs text-gray-400">
+    <span className="text-xs text-slate-500">
       {d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}{' '}
-      <span className="text-gray-300">{d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+      <span className="text-slate-600">{d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
     </span>
   )
 }

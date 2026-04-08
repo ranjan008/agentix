@@ -25,10 +25,10 @@ export default function Skills() {
   })
 
   const SOURCE_COLORS: Record<string, string> = {
-    builtin: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    hub:     'bg-indigo-50 text-indigo-700 border-indigo-100',
-    local:   'bg-amber-50 text-amber-700 border-amber-100',
-    git:     'bg-violet-50 text-violet-700 border-violet-100',
+    builtin: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    hub:     'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    local:   'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    git:     'bg-violet-500/10 text-violet-400 border-violet-500/20',
   }
 
   return (
@@ -39,10 +39,10 @@ export default function Skills() {
       />
 
       {installed && (
-        <div className="mb-6 flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-sm text-emerald-800">
-          <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
+        <div className="mb-6 flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-sm text-emerald-400">
+          <CheckCircle2 size={16} className="flex-shrink-0" />
           <span>Skill <strong>{installed}</strong> installed successfully.</span>
-          <button onClick={() => setInstalled(null)} className="ml-auto text-xs text-emerald-600 hover:underline">Dismiss</button>
+          <button onClick={() => setInstalled(null)} className="ml-auto text-xs text-emerald-500 hover:text-emerald-400 transition-colors">Dismiss</button>
         </div>
       )}
 
@@ -58,19 +58,19 @@ export default function Skills() {
               <div className="grid grid-cols-1 gap-2">
                 {skills.map((s: any) => (
                   <div key={s.name}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group">
-                    <div className="w-9 h-9 rounded-xl bg-gray-100 group-hover:bg-indigo-100 flex items-center justify-center flex-shrink-0 transition-colors">
-                      <Package size={16} className="text-gray-500 group-hover:text-indigo-600 transition-colors" />
+                    className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-cyan-500/20 hover:bg-cyan-500/[0.03] transition-all group">
+                    <div className="w-9 h-9 rounded-xl bg-white/[0.06] group-hover:bg-cyan-500/10 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <Package size={16} className="text-slate-500 group-hover:text-cyan-400 transition-colors" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{s.name}</p>
-                      {s.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{s.description}</p>}
+                      <p className="text-sm font-semibold text-slate-200">{s.name}</p>
+                      {s.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{s.description}</p>}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${SOURCE_COLORS[s.source] ?? 'bg-gray-100 text-gray-500 border-gray-100'}`}>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${SOURCE_COLORS[s.source] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
                         {s.source}
                       </span>
-                      <span className="text-[10px] text-gray-400">v{s.version}</span>
+                      <span className="text-[10px] text-slate-600">v{s.version}</span>
                     </div>
                   </div>
                 ))}
@@ -84,7 +84,7 @@ export default function Skills() {
           <CardHeader title="Marketplace" subtitle="Discover and install new skills" />
           <div className="p-5 space-y-4">
             <div className="relative">
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search skills…"
@@ -100,13 +100,13 @@ export default function Skills() {
               <div className="space-y-2">
                 {marketplace.map((s: any) => (
                   <div key={s.name}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-indigo-200 transition-all">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                      <Package size={15} className="text-indigo-500" />
+                    className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-cyan-500/20 transition-all">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                      <Package size={15} className="text-cyan-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{s.name}</p>
-                      {s.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{s.description}</p>}
+                      <p className="text-sm font-semibold text-slate-200">{s.name}</p>
+                      {s.description && <p className="text-xs text-slate-500 mt-0.5 truncate">{s.description}</p>}
                     </div>
                     <Btn
                       variant="primary" size="sm"
@@ -120,8 +120,8 @@ export default function Skills() {
               </div>
             ) : (
               <div className="py-10 text-center">
-                <Search size={28} className="mx-auto text-gray-200 mb-3" />
-                <p className="text-sm text-gray-400">
+                <Search size={28} className="mx-auto text-slate-700 mb-3" />
+                <p className="text-sm text-slate-500">
                   {query ? `No results for "${query}"` : 'Type to search the marketplace'}
                 </p>
               </div>

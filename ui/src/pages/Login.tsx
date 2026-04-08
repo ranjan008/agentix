@@ -1,5 +1,5 @@
 /**
- * Login page — split-panel enterprise design.
+ * Login page — full dark split-panel design.
  * Left: Agentix feature marketing panel.
  * Right: Auth0 SSO button + email/password form.
  */
@@ -102,28 +102,29 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-[#050c18]">
       {/* ── Left panel: feature marketing ── */}
       <div className="hidden lg:flex lg:w-[58%] relative flex-col justify-between p-12 overflow-hidden"
-           style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)' }}>
+           style={{ background: 'linear-gradient(135deg, #050c18 0%, #0a1628 40%, #0e1e38 100%)' }}>
 
         {/* Grid pattern overlay */}
         <div className="absolute inset-0 opacity-[0.04]"
              style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
         {/* Glow blobs */}
-        <div className="absolute top-1/4 -left-20 w-80 h-80 bg-indigo-600 rounded-full opacity-20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 right-0 w-64 h-64 bg-violet-600 rounded-full opacity-20 blur-3xl pointer-events-none" />
+        <div className="absolute top-1/4 -left-20 w-80 h-80 bg-cyan-600 rounded-full opacity-10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-0 w-64 h-64 bg-indigo-600 rounded-full opacity-15 blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-700 rounded-full opacity-5 blur-3xl pointer-events-none" />
 
         {/* Logo */}
         <div className="relative">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
               <Zap size={20} className="text-white" />
             </div>
             <div>
               <span className="text-white text-xl font-bold tracking-tight">Agentix</span>
-              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-300 font-medium">v1.0</span>
+              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-medium border border-cyan-500/20">v1.0</span>
             </div>
           </div>
         </div>
@@ -133,7 +134,7 @@ export default function Login() {
           <div>
             <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
               Enterprise-grade<br />
-              <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">
                 Agentic Platform
               </span>
             </h1>
@@ -146,22 +147,22 @@ export default function Login() {
           <div className="grid grid-cols-2 gap-4">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
               <div key={title}
-                   className="group p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-500/40 transition-all duration-200 cursor-default">
+                   className="group p-4 rounded-xl border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] hover:border-cyan-500/30 transition-all duration-200 cursor-default">
                 <div className="flex items-center gap-2.5 mb-2">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
-                    <Icon size={14} className="text-indigo-400" />
+                  <div className="w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0 border border-cyan-500/20">
+                    <Icon size={14} className="text-cyan-400" />
                   </div>
-                  <span className="text-sm font-semibold text-white">{title}</span>
+                  <span className="text-sm font-semibold text-slate-200">{title}</span>
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed">{desc}</p>
+                <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
 
           {/* Trust badges */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            {['SQLite · Zero deps', 'Anthropic Claude', 'Open Source'].map(b => (
-              <div key={b} className="flex items-center gap-1.5 text-xs text-slate-400">
+            {['SQLite · Zero deps', 'Anthropic Claude', 'Open Source · MIT'].map(b => (
+              <div key={b} className="flex items-center gap-1.5 text-xs text-slate-500">
                 <CheckCircle2 size={13} className="text-emerald-400 flex-shrink-0" />
                 {b}
               </div>
@@ -170,47 +171,47 @@ export default function Login() {
         </div>
 
         {/* Footer */}
-        <div className="relative text-xs text-slate-600">
+        <div className="relative text-xs text-slate-700">
           © 2026 Agentix · MIT License
         </div>
       </div>
 
       {/* ── Right panel: login form ── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-white">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-[#070e1c] border-l border-white/[0.04]">
         {/* Mobile logo */}
         <div className="lg:hidden mb-8 flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20">
             <Zap size={18} className="text-white" />
           </div>
-          <span className="text-xl font-bold">Agentix</span>
+          <span className="text-xl font-bold text-slate-100">Agentix</span>
         </div>
 
         <div className="w-full max-w-sm">
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
-            <p className="mt-1.5 text-sm text-gray-500">Sign in to your Agentix console</p>
+            <h2 className="text-2xl font-bold text-slate-100">Welcome back</h2>
+            <p className="mt-1.5 text-sm text-slate-500">Sign in to your Agentix console</p>
           </div>
 
           {/* Auth0 SSO */}
           {auth0Cfg && (
             <>
               <button onClick={handleAuth0}
-                className="w-full flex items-center justify-between gap-3 border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition-all duration-150 mb-5 group">
+                className="w-full flex items-center justify-between gap-3 border border-white/[0.08] hover:border-cyan-500/40 hover:bg-cyan-500/[0.04] rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition-all duration-150 mb-5 group">
                 <div className="flex items-center gap-3">
                   <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="#EB5424">
                     <path d="M21.98 7.448 19.62 0H4.347L2.02 7.448c-1.352 4.312.03 9.206 3.815 12.015L12.007 24l6.157-4.552c3.755-2.81 5.182-7.688 3.815-12.015zM12 19.056l-4.868-3.538 1.775-5.58H15.1l1.775 5.58L12 19.056z"/>
                   </svg>
                   Continue with Auth0 SSO
                 </div>
-                <ArrowRight size={15} className="text-gray-400 group-hover:text-indigo-600 transition-colors" />
+                <ArrowRight size={15} className="text-slate-600 group-hover:text-cyan-400 transition-colors" />
               </button>
 
               <div className="relative mb-5">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-100" />
+                  <div className="w-full border-t border-white/[0.06]" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="px-3 bg-white text-xs text-gray-400">or continue with email</span>
+                  <span className="px-3 bg-[#070e1c] text-xs text-slate-600">or continue with email</span>
                 </div>
               </div>
             </>
@@ -219,7 +220,7 @@ export default function Login() {
           {/* Email/password form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
+              <label className="block text-sm font-medium text-slate-400">Email address</label>
               <input
                 type="email" required autoComplete="email"
                 value={email} onChange={e => setEmail(e.target.value)}
@@ -228,7 +229,7 @@ export default function Login() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <label className="block text-sm font-medium text-slate-400">Password</label>
               <input
                 type="password" required autoComplete="current-password"
                 value={password} onChange={e => setPassword(e.target.value)}
@@ -238,22 +239,22 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-                <span className="text-red-400 mt-0.5">⚠</span>
+              <div className="flex items-start gap-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl px-4 py-3 text-sm">
+                <span className="mt-0.5">⚠</span>
                 {error}
               </div>
             )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full py-3">
               {loading
-                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in…</>
+                ? <><span className="w-4 h-4 border-2 border-slate-700 border-t-slate-950 rounded-full animate-spin" />Signing in…</>
                 : <>Sign in <ArrowRight size={15} /></>
               }
             </button>
           </form>
 
           {/* Role hint */}
-          <p className="mt-6 text-center text-xs text-gray-400">
+          <p className="mt-6 text-center text-xs text-slate-700">
             Role-based access · 5-tier RBAC · JWT secured
           </p>
         </div>
