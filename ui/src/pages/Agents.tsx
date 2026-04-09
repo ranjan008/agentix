@@ -37,7 +37,10 @@ export default function Agents() {
               const spec = a.spec ?? {}
               const meta = a.metadata ?? {}
               const skills: string[] = spec.skills ?? []
-              const model = spec.llm?.model ?? spec.model ?? meta.model ?? null
+              // llm can be an object {provider, model_id, temperature, max_tokens}
+              const llm = spec.llm ?? {}
+              const rawModel = llm.model_id ?? llm.model ?? spec.model ?? meta.model ?? null
+              const model = typeof rawModel === 'string' ? rawModel : null
 
               return (
                 <TableRow key={id}>
