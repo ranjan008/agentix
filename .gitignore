@@ -15,7 +15,6 @@ data/
 *.db-wal
 
 # Secrets
-.env
 
 # Node / UI
 node_modules/
@@ -27,3 +26,4 @@ ui/.vite/
 .vscode/
 .idea/
 *.swp
+config.bat
