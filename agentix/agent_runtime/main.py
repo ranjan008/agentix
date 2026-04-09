@@ -28,7 +28,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agentix.agent_runtime")
 
-MAX_TOOL_ITERATIONS = 20
+MAX_TOOL_ITERATIONS = 20  # default; overridden by spec.max_tool_calls
 
 
 def run(envelope: dict) -> None:
@@ -90,6 +90,7 @@ def run(envelope: dict) -> None:
     # --- Agentic loop ---
     store.audit("agent.started", envelope["id"], agent_id, envelope["caller"]["identity_id"])
 
+    max_iterations = agent_spec["spec"].get("max_tool_calls", MAX_TOOL_ITERATIONS)
     final_text = ""
     iterations = 0
 
@@ -99,11 +100,12 @@ def run(envelope: dict) -> None:
         nonlocal final_text, iterations, messages
 
         # Load connectors (async: network calls to verify credentials)
-        await connector_engine.load_for_agent(connector_refs, executor._registry)
+        from agentix.agent_runtime.tool_executor import _TOOL_REGISTRY
+        await connector_engine.load_for_agent(connector_refs, _TOOL_REGISTRY)
         tool_schemas.extend(connector_engine.tool_schemas())
 
         try:
-            while iterations < MAX_TOOL_ITERATIONS:
+            while iterations < max_iterations:
                 iterations += 1
                 response = await llm.complete(
                     messages=messages,
@@ -157,7 +159,7 @@ def run(envelope: dict) -> None:
 
     _asyncio.run(_agentic_loop())
 
-    if iterations >= MAX_TOOL_ITERATIONS:
+    if iterations >= max_iterations:
         logger.warning("Max tool iterations reached for agent=%s", agent_id)
         if not final_text:
             final_text = "I reached the maximum number of tool calls. Please try a more specific request."
