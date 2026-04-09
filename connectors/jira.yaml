@@ -1,0 +1,19 @@
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: jira
+  description: Jira connector for creating and managing issues
+
+spec:
+  type: jira
+  config:
+    base_url: https://your-org.atlassian.net  # Your Jira Cloud URL
+    email: ${JIRA_EMAIL}                       # Atlassian account email
+    api_token: ${JIRA_API_TOKEN}               # API token from id.atlassian.com
+
+  # Actions available to agents:
+  #   jira__get_issue       - get issue details (issue_key)
+  #   jira__create_issue    - create issue (project_key, summary, description, issue_type)
+  #   jira__update_issue    - update fields (issue_key, fields)
+  #   jira__add_comment     - add a comment (issue_key, body)
+  #   jira__search_issues   - JQL search (jql, max_results)

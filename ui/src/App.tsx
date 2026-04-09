@@ -1,7 +1,7 @@
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Bot, Zap, ShieldCheck, Users, BarChart2,
-  Package, MessageSquare, LogOut, ChevronRight, Zap as ZapIcon,
+  Package, MessageSquare, LogOut, ChevronRight, Zap as ZapIcon, Plug,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -13,6 +13,7 @@ import Audit from './pages/Audit'
 import Tenants from './pages/Tenants'
 import Metrics from './pages/Metrics'
 import Skills from './pages/Skills'
+import Connectors from './pages/Connectors'
 import Chat from './pages/Chat'
 import Login from './pages/Login'
 
@@ -29,7 +30,8 @@ const NAV_GROUPS = [
     items: [
       { to: '/agents',   icon: Bot,         label: 'Agents',    minLevel: 2 },
       { to: '/triggers', icon: Zap,         label: 'Triggers',  minLevel: 2 },
-      { to: '/skills',   icon: Package,     label: 'Skills',    minLevel: 3 },
+      { to: '/skills',      icon: Package,     label: 'Skills',      minLevel: 3 },
+      { to: '/connectors',  icon: Plug,        label: 'Connectors',  minLevel: 3 },
     ],
   },
   {
@@ -191,6 +193,7 @@ function Shell() {
             </>
           )}
           {level >= 3 && <Route path="/skills" element={<Skills />} />}
+          {level >= 3 && <Route path="/connectors" element={<Connectors />} />}
           {level >= 4 && (
             <>
               <Route path="/audit" element={<Audit />} />

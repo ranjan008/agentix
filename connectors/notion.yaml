@@ -1,0 +1,17 @@
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: notion
+  description: Notion connector for reading and writing pages and databases
+
+spec:
+  type: notion
+  config:
+    token: ${NOTION_TOKEN}           # Internal integration token from Notion developers
+
+  # Actions available to agents:
+  #   notion__get_page         - get a page by ID (page_id)
+  #   notion__create_page      - create a page (parent_id, title, content)
+  #   notion__update_page      - update page properties (page_id, properties)
+  #   notion__query_database   - query a database (database_id, filter, sorts)
+  #   notion__search           - search across Notion (query, filter)

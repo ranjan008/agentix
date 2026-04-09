@@ -1,0 +1,34 @@
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: my-webhook
+  description: Generic HTTP webhook to an internal service
+
+spec:
+  type: webhook
+  config:
+    url: https://example.com/api/events
+    method: POST                            # Default HTTP method
+    verify_ssl: true
+    auth_header: "Bearer ${WEBHOOK_SECRET}" # Added as Authorization header
+    headers:
+      X-Source: agentix
+      Content-Type: application/json
+
+  # Actions available to agents:
+  #   my-webhook__call  - make an HTTP request
+  #                       (method, path, body, query, headers)
+
+---
+# Inline connector config in agent spec (no admin UI setup needed):
+#
+# apiVersion: agentix/v1
+# kind: Agent
+# metadata:
+#   name: notifier-agent
+# spec:
+#   connectors:
+#     - name: my-webhook
+#       config:
+#         url: https://example.com/notify
+#         auth_header: "Bearer supersecret"
