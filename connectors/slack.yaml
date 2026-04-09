@@ -1,0 +1,17 @@
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: slack
+  description: Slack connector for sending messages and managing channels
+
+spec:
+  type: slack
+  config:
+    bot_token: ${SLACK_BOT_TOKEN}   # xoxb-... token from Slack App settings
+
+  # Actions available to agents:
+  #   slack__post_message    - send a message (channel, text, blocks)
+  #   slack__list_channels   - list all channels (limit)
+  #   slack__get_channel     - get channel info (channel)
+  #   slack__upload_file     - upload a file (channel, content, filename, title)
+  #   slack__add_reaction    - add emoji reaction (channel, timestamp, name)

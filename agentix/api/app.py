@@ -29,6 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from agentix.api.routers import agents, triggers, skills, audit, tenants, health, metrics, auth, chat
+from agentix.api.routers import connectors
 
 _logger = logging.getLogger("agentix.api")
 
@@ -76,6 +77,7 @@ def create_app(cfg: dict | None = None) -> FastAPI:
     app.include_router(audit.router, prefix=prefix, tags=["Audit"])
     app.include_router(tenants.router, prefix=prefix, tags=["Tenants"])
     app.include_router(metrics.router, prefix=prefix, tags=["Metrics"])
+    app.include_router(connectors.router, prefix=prefix, tags=["Connectors"])
 
     # Serve compiled React UI if present
     ui_dist = os.path.join(os.path.dirname(__file__), "..", "..", "ui", "dist")

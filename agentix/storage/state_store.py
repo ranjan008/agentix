@@ -77,6 +77,19 @@ CREATE TABLE IF NOT EXISTS tenants (
     updated_at  REAL NOT NULL,
     deleted     INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS connectors (
+    name        TEXT PRIMARY KEY,           -- user-given unique name, e.g. "my-github"
+    type        TEXT NOT NULL,              -- catalog type_name, e.g. "github"
+    config      TEXT NOT NULL DEFAULT '{}', -- JSON (credentials + options)
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    status      TEXT NOT NULL DEFAULT 'pending',  -- pending|connected|error
+    last_tested_at REAL,
+    last_error  TEXT,
+    tenant_id   TEXT,
+    created_at  REAL NOT NULL,
+    updated_at  REAL NOT NULL
+);
 """
 
 
@@ -442,4 +455,69 @@ class StateStore:
             cur.execute(
                 "UPDATE tenants SET deleted=1, updated_at=? WHERE tenant_id=?",
                 (time.time(), tenant_id),
+            )
+
+    # ------------------------------------------------------------------
+    # Connectors
+    # ------------------------------------------------------------------
+
+    def upsert_connector(self, name: str, connector_type: str, config: dict,
+                         tenant_id: str | None = None) -> None:
+        now = time.time()
+        with self._cursor() as cur:
+            cur.execute(
+                """INSERT INTO connectors (name, type, config, enabled, status, tenant_id, created_at, updated_at)
+                   VALUES (?, ?, ?, 1, 'pending', ?, ?, ?)
+                   ON CONFLICT(name) DO UPDATE SET
+                       type=excluded.type, config=excluded.config,
+                       tenant_id=excluded.tenant_id, updated_at=excluded.updated_at""",
+                (name, connector_type, json.dumps(config), tenant_id, now, now),
+            )
+
+    def get_connector(self, name: str) -> dict | None:
+        with self._cursor() as cur:
+            row = cur.execute(
+                "SELECT * FROM connectors WHERE name=?", (name,)
+            ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["config"] = json.loads(d.get("config", "{}"))
+        d["enabled"] = bool(d["enabled"])
+        return d
+
+    def list_connectors(self, tenant_id: str | None = None) -> list[dict]:
+        with self._cursor() as cur:
+            if tenant_id:
+                rows = cur.execute(
+                    "SELECT * FROM connectors WHERE tenant_id=? OR tenant_id IS NULL ORDER BY name",
+                    (tenant_id,),
+                ).fetchall()
+            else:
+                rows = cur.execute("SELECT * FROM connectors ORDER BY name").fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["config"] = json.loads(d.get("config", "{}"))
+            d["enabled"] = bool(d["enabled"])
+            result.append(d)
+        return result
+
+    def delete_connector(self, name: str) -> None:
+        with self._cursor() as cur:
+            cur.execute("DELETE FROM connectors WHERE name=?", (name,))
+
+    def update_connector_status(self, name: str, status: str, error: str | None = None) -> None:
+        now = time.time()
+        with self._cursor() as cur:
+            cur.execute(
+                "UPDATE connectors SET status=?, last_tested_at=?, last_error=?, updated_at=? WHERE name=?",
+                (status, now, error, now, name),
+            )
+
+    def set_connector_enabled(self, name: str, enabled: bool) -> None:
+        with self._cursor() as cur:
+            cur.execute(
+                "UPDATE connectors SET enabled=?, updated_at=? WHERE name=?",
+                (int(enabled), time.time(), name),
             )

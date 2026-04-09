@@ -16,6 +16,7 @@ from agentix.agent_runtime.context_builder import build_messages, build_system_p
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec
 from agentix.agent_runtime.output_handler import route_output
 from agentix.agent_runtime.tool_executor import ToolExecutor
+from agentix.connectors.engine import ConnectorEngine
 from agentix.llm.router import build_router
 from agentix.skills.engine import SkillEngine
 from agentix.storage.state_store import StateStore
@@ -63,6 +64,10 @@ def run(envelope: dict) -> None:
     # Register skill-provided tools
     skill_engine.register_skill_tools(skill_names, executor)
 
+    # --- Prepare connector engine ---
+    connector_engine = ConnectorEngine(store)
+    connector_refs = agent_spec["spec"].get("connectors", [])
+
     # --- Build LLM router ---
     config_path = os.environ.get("AGENTIX_CONFIG", "config/watchdog.yaml")
     try:
@@ -93,55 +98,62 @@ def run(envelope: dict) -> None:
     async def _agentic_loop():
         nonlocal final_text, iterations, messages
 
-        while iterations < MAX_TOOL_ITERATIONS:
-            iterations += 1
-            response = await llm.complete(
-                messages=messages,
-                system=system_prompt,
-                tools=tool_schemas or None,
-                tags=agent_tags,
-            )
+        # Load connectors (async: network calls to verify credentials)
+        await connector_engine.load_for_agent(connector_refs, executor._registry)
+        tool_schemas.extend(connector_engine.tool_schemas())
 
-            if response.stop_reason in ("end_turn", "stop"):
+        try:
+            while iterations < MAX_TOOL_ITERATIONS:
+                iterations += 1
+                response = await llm.complete(
+                    messages=messages,
+                    system=system_prompt,
+                    tools=tool_schemas or None,
+                    tags=agent_tags,
+                )
+
+                if response.stop_reason in ("end_turn", "stop"):
+                    final_text = response.content
+                    break
+
+                if response.stop_reason == "tool_use" and response.tool_calls:
+                    # Append assistant message with the full content blocks (text + tool_use).
+                    # Anthropic requires tool_use blocks to be present here so the subsequent
+                    # tool_result blocks have a matching tool_use_id to reference.
+                    raw_blocks = None
+                    if isinstance(response.raw, dict):
+                        raw_blocks = response.raw.get("blocks")
+                    assistant_content = raw_blocks if raw_blocks else (response.content or "")
+                    messages.append({"role": "assistant", "content": assistant_content})
+
+                    # Execute each tool call
+                    tool_results = []
+                    for tc in response.tool_calls:
+                        try:
+                            result = executor.execute(tc.name, tc.input)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tc.id,
+                                "content": json.dumps(result) if not isinstance(result, str) else result,
+                            })
+                            store.audit("tool.called", envelope["id"], agent_id, detail={"tool": tc.name})
+                        except Exception as exc:
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tc.id,
+                                "content": f"Error: {exc}",
+                                "is_error": True,
+                            })
+                            store.audit("tool.error", envelope["id"], agent_id, detail={"tool": tc.name, "error": str(exc)})
+
+                    messages.append({"role": "user", "content": tool_results})
+                    continue
+
+                # Any other stop reason
                 final_text = response.content
                 break
-
-            if response.stop_reason == "tool_use" and response.tool_calls:
-                # Append assistant message with the full content blocks (text + tool_use).
-                # Anthropic requires tool_use blocks to be present here so the subsequent
-                # tool_result blocks have a matching tool_use_id to reference.
-                raw_blocks = None
-                if isinstance(response.raw, dict):
-                    raw_blocks = response.raw.get("blocks")
-                assistant_content = raw_blocks if raw_blocks else (response.content or "")
-                messages.append({"role": "assistant", "content": assistant_content})
-
-                # Execute each tool call
-                tool_results = []
-                for tc in response.tool_calls:
-                    try:
-                        result = executor.execute(tc.name, tc.input)
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tc.id,
-                            "content": json.dumps(result) if not isinstance(result, str) else result,
-                        })
-                        store.audit("tool.called", envelope["id"], agent_id, detail={"tool": tc.name})
-                    except Exception as exc:
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": tc.id,
-                            "content": f"Error: {exc}",
-                            "is_error": True,
-                        })
-                        store.audit("tool.error", envelope["id"], agent_id, detail={"tool": tc.name, "error": str(exc)})
-
-                messages.append({"role": "user", "content": tool_results})
-                continue
-
-            # Any other stop reason
-            final_text = response.content
-            break
+        finally:
+            await connector_engine.shutdown()
 
     _asyncio.run(_agentic_loop())
 

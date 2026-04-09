@@ -1,0 +1,34 @@
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: github
+  description: GitHub connector for creating issues, PRs, and managing repos
+
+spec:
+  type: github
+  config:
+    token: ${GITHUB_TOKEN}        # Personal access token or GitHub App token
+    base_url: https://api.github.com  # Override for GitHub Enterprise
+
+  # Actions available to agents:
+  #   github__list_repos         - list repositories for the authenticated user
+  #   github__get_repo           - get repo details (owner, repo)
+  #   github__create_issue       - create an issue (owner, repo, title, body, labels)
+  #   github__list_issues        - list open issues (owner, repo, state, per_page)
+  #   github__create_pr          - create a pull request (owner, repo, title, body, head, base)
+  #   github__merge_pr           - merge a pull request (owner, repo, pull_number)
+  #   github__get_file_contents  - read a file (owner, repo, path, ref)
+
+---
+# Example agent spec using this connector:
+#
+# apiVersion: agentix/v1
+# kind: Agent
+# metadata:
+#   name: github-triage-bot
+# spec:
+#   connectors:
+#     - github
+#   prompt: |
+#     You are a GitHub triage assistant. Use the github connector to
+#     list and respond to issues in the repository.
