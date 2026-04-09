@@ -1,0 +1,119 @@
+###############################################################################
+# Google Workspace Connectors
+#
+# Auth options (choose one):
+#   a) Service account (recommended for server-side):
+#        credentials_json: '{"type":"service_account","project_id":"...","private_key":"...","client_email":"..."}'
+#        Or set via env var:
+#        credentials_json: ${GOOGLE_SERVICE_ACCOUNT_JSON}
+#
+#   b) Direct access token (OAuth2 user flow):
+#        access_token: ${GOOGLE_ACCESS_TOKEN}
+#
+# Service account setup:
+#   1. Go to https://console.cloud.google.com → IAM → Service Accounts
+#   2. Create a key (JSON format) and download it
+#   3. Enable the required APIs (Gmail, Drive, Calendar, Sheets)
+#   4. For Gmail/Calendar/Drive: enable domain-wide delegation for G Suite
+###############################################################################
+
+---
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: gmail
+  description: Send and manage emails via Google Gmail
+
+spec:
+  type: gmail
+  config:
+    credentials_json: ${GOOGLE_SERVICE_ACCOUNT_JSON}
+
+  # Actions available to agents:
+  #   gmail__send_email      - send an email (to, subject, body, cc, html)
+  #   gmail__list_emails     - list inbox messages (query, max_results, label)
+  #   gmail__get_email       - get full email content (message_id)
+  #   gmail__search_emails   - search with Gmail query syntax (query, max_results)
+  #   gmail__manage_labels   - add/remove labels (message_id, add_labels, remove_labels)
+
+---
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: google_drive
+  description: List, upload, and manage files in Google Drive
+
+spec:
+  type: google_drive
+  config:
+    credentials_json: ${GOOGLE_SERVICE_ACCOUNT_JSON}
+
+  # Actions available to agents:
+  #   google_drive__list_files     - list files (query, folder_id, max_results)
+  #   google_drive__get_file       - get file metadata (file_id)
+  #   google_drive__download_file  - download file content (file_id)
+  #   google_drive__create_folder  - create a folder (name, parent_id)
+  #   google_drive__upload_file    - upload text content (name, content, parent_id, mime_type)
+  #   google_drive__delete_file    - trash a file (file_id)
+  #   google_drive__share_file     - share file (file_id, email, role, public)
+
+---
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: google_calendar
+  description: Manage Google Calendar events and meetings
+
+spec:
+  type: google_calendar
+  config:
+    credentials_json: ${GOOGLE_SERVICE_ACCOUNT_JSON}
+    default_calendar_id: primary      # or a specific calendar ID
+    default_timezone: UTC             # e.g. America/New_York, Europe/London
+
+  # Actions available to agents:
+  #   google_calendar__list_events    - list events (calendar_id, time_min, time_max, query)
+  #   google_calendar__get_event      - get event details (event_id, calendar_id)
+  #   google_calendar__create_event   - create event (summary, start, end, attendees, ...)
+  #   google_calendar__update_event   - update event (event_id, summary, start, end, ...)
+  #   google_calendar__delete_event   - delete event (event_id, calendar_id)
+  #   google_calendar__list_calendars - list all calendars
+
+---
+apiVersion: agentix/v1
+kind: Connector
+metadata:
+  name: google_sheets
+  description: Read and write Google Sheets spreadsheets
+
+spec:
+  type: google_sheets
+  config:
+    credentials_json: ${GOOGLE_SERVICE_ACCOUNT_JSON}
+    default_spreadsheet_id: ${SPREADSHEET_ID}   # Optional default sheet
+
+  # Actions available to agents:
+  #   google_sheets__get_values          - read cells (spreadsheet_id, range)
+  #   google_sheets__set_values          - write cells (spreadsheet_id, range, values)
+  #   google_sheets__append_rows         - append rows (spreadsheet_id, range, values)
+  #   google_sheets__create_spreadsheet  - create new spreadsheet (title, sheet_names)
+  #   google_sheets__list_sheets         - list tabs (spreadsheet_id)
+  #   google_sheets__add_sheet           - add a tab (spreadsheet_id, title)
+  #   google_sheets__clear_range         - clear cells (spreadsheet_id, range)
+
+---
+# Example agent using multiple Google connectors:
+#
+# apiVersion: agentix/v1
+# kind: Agent
+# metadata:
+#   name: google-assistant
+# spec:
+#   connectors:
+#     - gmail
+#     - google_drive
+#     - google_calendar
+#     - google_sheets
+#   prompt: |
+#     You are a Google Workspace assistant. You can read and send emails,
+#     manage calendar events, work with Drive files, and update spreadsheets.
