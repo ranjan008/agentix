@@ -4,7 +4,8 @@ watchdog:
   db_path: "data/agentix.db"
   spawn_mode: "process"
   max_concurrent_agents: 10
-  shutdown_timeout_sec: 120
+  shutdown_timeout_sec: 30        # graceful shutdown wait
+  agent_timeout_sec: 600          # max time per agent run (10 min — enough for news+trading)
 
   # ─── Rate limiting ───────────────────────────────────────────────────────────
   rate_limit:

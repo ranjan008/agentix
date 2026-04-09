@@ -31,7 +31,7 @@ def load_agent_spec(path: str | Path) -> dict:
     if not path.exists():
         raise AgentLoadError(f"Agent spec not found: {path}")
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         spec = yaml.safe_load(f)
 
     if spec.get("apiVersion") != "agentix/v1":
@@ -39,12 +39,8 @@ def load_agent_spec(path: str | Path) -> dict:
     if spec.get("kind") != "Agent":
         raise AgentLoadError("Agent spec must have kind: Agent")
 
-    for field in REQUIRED_FIELDS:
-        obj = spec
-        for part in field.split("."):
-            obj = obj.get(part, {}) if isinstance(obj, dict) else None
-        if not obj:
-            raise AgentLoadError(f"Missing required field: {field}")
+    if not spec.get("metadata", {}).get("name"):
+        raise AgentLoadError("Missing required field: metadata.name")
 
     # Resolve file-based system prompts so downstream always has a plain string
     _resolve_system_prompt(spec, base_dir=path.parent)
