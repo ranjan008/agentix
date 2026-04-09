@@ -2,6 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-50 text-gray-900 font-sans;
+@layer base {
+  body {
+    @apply bg-[#050c18] text-slate-200 antialiased;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-600;
+  }
+}
+
+@layer components {
+  /* Glass morphism card */
+  .card {
+    @apply bg-slate-900/80 backdrop-blur-sm rounded-2xl border border-white/[0.06]
+           shadow-xl shadow-black/30;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-600
+           text-slate-950 font-semibold rounded-xl px-4 py-2.5 text-sm
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-cyan-500/50
+           focus:ring-offset-2 focus:ring-offset-slate-900
+           disabled:opacity-40 disabled:cursor-not-allowed
+           shadow-sm shadow-cyan-500/20;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-white/[0.05] hover:bg-white/[0.09] active:bg-white/[0.04]
+           text-slate-300 font-medium rounded-xl px-4 py-2.5 text-sm
+           border border-white/[0.08]
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-slate-500/30;
+  }
+
+  .input {
+    @apply w-full bg-white/[0.04] border border-white/[0.08] text-slate-200
+           rounded-xl px-4 py-2.5 text-sm
+           focus:outline-none focus:ring-2 focus:ring-cyan-500/40
+           focus:border-cyan-500/40
+           transition-all duration-150
+           placeholder:text-slate-600;
+  }
+
+  /* Status badges — dark variants */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-green  { @apply bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20; }
+  .badge-blue   { @apply bg-cyan-500/10    text-cyan-400    ring-1 ring-cyan-500/20;    }
+  .badge-yellow { @apply bg-amber-500/10   text-amber-400   ring-1 ring-amber-500/20;   }
+  .badge-red    { @apply bg-red-500/10     text-red-400     ring-1 ring-red-500/20;     }
+  .badge-gray   { @apply bg-slate-500/10   text-slate-400   ring-1 ring-slate-500/20;   }
+  .badge-purple { @apply bg-violet-500/10  text-violet-400  ring-1 ring-violet-500/20;  }
 }

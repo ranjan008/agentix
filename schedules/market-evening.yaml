@@ -1,0 +1,14 @@
+apiVersion: "agentix/v1"
+kind: "Schedule"
+metadata:
+  name: "market-evening"
+  tenant_id: "default"
+spec:
+  type: "cron"
+  expression: "45 10 * * 1-5"   # 16:15 IST Mon-Fri (market closes 15:30)
+  timezone: "Asia/Kolkata"
+  agent: "trading-agent"
+  payload:
+    text: "Generate the evening P&L report summarising today's market performance and portfolio impact."
+    context:
+      mode: "evening_report"

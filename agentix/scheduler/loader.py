@@ -60,7 +60,7 @@ def load_schedules_dir(scheduler: Scheduler, schedules_dir: str | Path = "schedu
     count = 0
     for path in sorted(schedules_dir.glob("**/*.yaml")):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 doc = yaml.safe_load(f)
             _register(scheduler, doc, str(path))
             count += 1

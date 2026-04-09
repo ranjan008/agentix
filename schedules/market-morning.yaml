@@ -1,0 +1,14 @@
+apiVersion: "agentix/v1"
+kind: "Schedule"
+metadata:
+  name: "market-morning"
+  tenant_id: "default"
+spec:
+  type: "cron"
+  expression: "15 3 * * 1-5"   # 08:45 IST Mon-Fri (market opens 09:15)
+  timezone: "Asia/Kolkata"
+  agent: "trading-agent"
+  payload:
+    text: "Generate the morning market brief with top stock picks and trading suggestions for today."
+    context:
+      mode: "morning_brief"

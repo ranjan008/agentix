@@ -80,7 +80,7 @@ class Watchdog:
         )
         self.spawner = AgentSpawner(
             max_concurrent=self.cfg.get("max_concurrent_agents", 10),
-            spawn_timeout_sec=self.cfg.get("shutdown_timeout_sec", 120),
+            spawn_timeout_sec=self.cfg.get("agent_timeout_sec", self.cfg.get("shutdown_timeout_sec", 600)),
             db_path=self.db_path,
             on_complete=self._on_agent_complete,
         )

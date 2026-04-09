@@ -12,24 +12,47 @@ Run:
 """
 from __future__ import annotations
 
+import logging
 import os
+
+# Load .env before anything reads os.environ (handles direct uvicorn invocation)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=".env", override=True)
+except ImportError:
+    pass
+
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from agentix.api.routers import agents, triggers, skills, audit, tenants, health, metrics
+from agentix.api.routers import agents, triggers, skills, audit, tenants, health, metrics, auth, chat
+
+_logger = logging.getLogger("agentix.api")
 
 
 def create_app(cfg: dict | None = None) -> FastAPI:
     cfg = cfg or {}
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):  # noqa: ARG001
+        port = int(os.environ.get("PORT", 8090))
+        _logger.info("=" * 60)
+        _logger.info("  Agentix Admin API  →  http://localhost:%d/docs", port)
+        _logger.info("  Admin UI           →  http://localhost:%d/ui", port)
+        _logger.info("  Login: %s / <ADMIN_PASSWORD in .env>", os.environ.get("ADMIN_EMAIL", "admin@agentix.local"))
+        _logger.info("=" * 60)
+        yield  # server runs here
+
     app = FastAPI(
         title="Agentix Admin API",
-        version="4.0.0",
+        version="1.0.0",
         description="Enterprise management API for the Agentix agentic platform",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     # CORS
@@ -45,6 +68,8 @@ def create_app(cfg: dict | None = None) -> FastAPI:
     # Routers
     prefix = "/api/v1"
     app.include_router(health.router, tags=["Health"])
+    app.include_router(auth.router, prefix=prefix, tags=["Auth"])
+    app.include_router(chat.router, prefix=prefix, tags=["Chat"])
     app.include_router(agents.router, prefix=prefix, tags=["Agents"])
     app.include_router(triggers.router, prefix=prefix, tags=["Triggers"])
     app.include_router(skills.router, prefix=prefix, tags=["Skills"])
