@@ -36,7 +36,6 @@ async def chat_send(
     identity: Annotated[dict, Depends(get_current_identity)],
 ) -> ChatResponse:
     """Create a trigger for the given agent and return the trigger_id for polling."""
-    import time
     from datetime import datetime, timezone
 
     trigger_id = f"trig_{uuid.uuid4().hex[:16]}"
