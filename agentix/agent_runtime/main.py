@@ -80,11 +80,21 @@ def run(envelope: dict) -> None:
     system_prompt = build_system_prompt(agent_spec, skill_instructions)
     messages = build_messages(envelope, agent_spec, store)
 
-    # Collect all tool schemas (built-in tools + skill tools)
+    # Collect all tool schemas (built-in tools + skill tools), deduplicated by name
     tool_names = agent_spec["spec"].get("tools", [])
-    tool_schemas = executor.get_tool_schemas(tool_names) + skill_tools
+    _seen: set[str] = set()
+    tool_schemas: list[dict] = []
+    for schema in executor.get_tool_schemas(tool_names) + skill_tools:
+        if schema["name"] not in _seen:
+            _seen.add(schema["name"])
+            tool_schemas.append(schema)
 
-    # LLM tags for provider routing (from agent spec)
+    # LLM config from agent spec (spec.llm overrides watchdog defaults)
+    agent_llm_cfg = agent_spec["spec"].get("llm", agent_spec["spec"].get("model", {}))
+    agent_model = agent_llm_cfg.get("model_id") or agent_llm_cfg.get("model") or None
+    agent_provider = agent_llm_cfg.get("provider") or None
+    agent_temperature = agent_llm_cfg.get("temperature", 1.0)
+    agent_max_tokens = agent_llm_cfg.get("max_tokens", 4096)
     agent_tags = agent_spec["spec"].get("tags", [])
 
     # --- Agentic loop ---
@@ -102,7 +112,10 @@ def run(envelope: dict) -> None:
         # Load connectors (async: network calls to verify credentials)
         from agentix.agent_runtime.tool_executor import _TOOL_REGISTRY
         await connector_engine.load_for_agent(connector_refs, _TOOL_REGISTRY)
-        tool_schemas.extend(connector_engine.tool_schemas())
+        for schema in connector_engine.tool_schemas():
+            if schema["name"] not in _seen:
+                _seen.add(schema["name"])
+                tool_schemas.append(schema)
 
         try:
             while iterations < max_iterations:
@@ -112,6 +125,10 @@ def run(envelope: dict) -> None:
                     system=system_prompt,
                     tools=tool_schemas or None,
                     tags=agent_tags,
+                    model=agent_model,
+                    provider=agent_provider,
+                    temperature=agent_temperature,
+                    max_tokens=agent_max_tokens,
                 )
 
                 if response.stop_reason in ("end_turn", "stop"):
