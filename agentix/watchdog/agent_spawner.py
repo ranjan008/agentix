@@ -86,7 +86,6 @@ class AgentSpawner:
                     return
 
                 if proc.returncode == 0:
-                    out = stdout.decode(errors="replace").strip()
                     err = stderr.decode(errors="replace").strip()
                     logger.info("Agent completed: agent=%s trigger=%s", agent_id, trigger_id)
                     if err:
