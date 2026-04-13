@@ -73,8 +73,12 @@ def build_messages(
     # Load previous turns from state store
     history: list[dict] = store.get_state(agent_id, scope, history_key) or []
 
-    # New user message
+    # New user message — include context metadata if present
     text = envelope["payload"]["text"]
+    context = envelope["payload"].get("context", {})
+    if context:
+        import json as _json
+        text = f"{text}\n\n[Context: {_json.dumps(context)}]"
     user_message = {"role": "user", "content": text}
 
     messages = history + [user_message]
