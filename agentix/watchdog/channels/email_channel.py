@@ -61,6 +61,7 @@ class EmailChannel:
         self._smtp_pass = cfg.get("email_smtp_password") or _env("EMAIL_SMTP_PASSWORD")
         self._smtp_tls = str(cfg.get("email_smtp_use_tls", _env("EMAIL_SMTP_USE_TLS", "true"))).lower() == "true"
 
+        self._default_agent_id = cfg.get("default_agent_id", "")
         self._on_trigger = on_trigger
         self._seen_uids: set[bytes] = set()
         self._poll_task: asyncio.Task | None = None
@@ -99,6 +100,11 @@ class EmailChannel:
                 for msg_dict in messages:
                     envelope = _normalise(msg_dict)
                     if envelope:
+                        from agentix.watchdog.channels.router import AgentRouter
+                        router = AgentRouter(self._default_agent_id)
+                        # Route by subject first, fall back to body
+                        routing_text = envelope.payload.get("subject", "") or envelope.payload.get("body", "")
+                        envelope.payload["_agent_id"] = router.resolve(routing_text)
                         await self._on_trigger(envelope)
             except asyncio.CancelledError:
                 raise

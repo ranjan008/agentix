@@ -75,10 +75,32 @@ def build_messages(
 
     # New user message — include context metadata if present
     text = envelope["payload"]["text"]
+
+    # Prepend sender identity so agents can do RBAC based on channel + username.
+    # _identity is the raw identity dict set by TriggerEnvelope.to_dict().
+    identity = envelope.get("_identity", {})
+    channel = envelope.get("channel", "")
+    if identity or channel:
+        parts: list[str] = []
+        if channel:
+            parts.append(f"channel={channel}")
+        uid = identity.get("username") or identity.get("user_id") or envelope.get("caller", {}).get("identity_id", "")
+        if uid:
+            # Prefix @ for Telegram/Slack usernames that don't already have it
+            if channel in ("telegram", "slack") and uid and not str(uid).startswith("@") and not str(uid).isdigit():
+                uid = f"@{uid}"
+            parts.append(f"username={uid}")
+        name = identity.get("first_name") or identity.get("name") or ""
+        if name:
+            parts.append(f"name={name}")
+        if parts:
+            text = f"[Sender: {', '.join(parts)}]\n{text}"
+
     context = envelope["payload"].get("context", {})
     if context:
         import json as _json
         text = f"{text}\n\n[Context: {_json.dumps(context)}]"
+
     user_message = {"role": "user", "content": text}
 
     messages = history + [user_message]

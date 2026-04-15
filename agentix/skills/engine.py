@@ -21,12 +21,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Map skill name -> module path for built-in skills
-# Both hyphenated and underscore names are supported for convenience
+# Both hyphenated and underscore variants are accepted.
 _BUILTIN_SKILLS: dict[str, str] = {
     # Web
     "web-search": "agentix.skills.builtin.web_search",
     "web_search": "agentix.skills.builtin.web_search",
-    "web_fetch": "agentix.skills.builtin.web_search",   # web_fetch lives in the web_search module
+    # web_fetch lives in the same module — referencing it as a skill registers the tool
+    "web-fetch": "agentix.skills.builtin.web_search",
+    "web_fetch": "agentix.skills.builtin.web_search",
     # File / browser
     "file-ops": "agentix.skills.builtin.file_ops",
     "file_ops": "agentix.skills.builtin.file_ops",
@@ -49,8 +51,9 @@ _BUILTIN_SKILLS: dict[str, str] = {
 
 
 class SkillEngine:
-    def __init__(self, store: "StateStore") -> None:
+    def __init__(self, store: "StateStore", agent_dir: "Path | str | None" = None) -> None:
         self.store = store
+        self.agent_dir = Path(agent_dir) if agent_dir else None
 
     def load_skills(self, skill_names: list[str]) -> list[str]:
         """
@@ -128,7 +131,15 @@ class SkillEngine:
                 spec.loader.exec_module(mod)  # type: ignore[union-attr]
                 return mod
 
-        # 3. Installed skill from DB
+        # 3. Agent-local YAML skill: {agent_dir}/skills/{name}/skill.yaml
+        if self.agent_dir:
+            yaml_path = self.agent_dir / "skills" / name / "skill.yaml"
+            if not yaml_path.exists():
+                yaml_path = self.agent_dir / "skills" / name / "skill.yml"
+            if yaml_path.exists():
+                return _YamlSkillStub(yaml_path)
+
+        # 4. Installed skill from DB
         db_skill = self.store.get_skill(name)
         if db_skill:
             logger.info("Loaded installed skill '%s' from DB (no runtime module)", name)
@@ -142,5 +153,17 @@ class _SkillStub:
     """Minimal stub for skills that are registered in the DB but have no Python module."""
     def __init__(self, spec: dict) -> None:
         self.INSTRUCTIONS = spec.get("description", "")
+        self.TOOL_SCHEMAS: list[dict] = []
+        self.TOOLS: dict = {}
+
+
+class _YamlSkillStub:
+    """Stub for agent-local YAML-only skills (skill.yaml with instructions but no Python module)."""
+    def __init__(self, yaml_path: Path) -> None:
+        import yaml as _yaml
+        with open(yaml_path, encoding="utf-8") as fh:
+            data = _yaml.safe_load(fh)
+        skill_spec = data.get("spec", {})
+        self.INSTRUCTIONS: str = skill_spec.get("instructions", "")
         self.TOOL_SCHEMAS: list[dict] = []
         self.TOOLS: dict = {}

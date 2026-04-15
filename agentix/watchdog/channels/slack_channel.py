@@ -54,6 +54,8 @@ class SlackChannel:
 
         app = AsyncApp(token=self.bot_token, signing_secret=self.signing_secret or None)
 
+        from agentix.watchdog.channels.router import AgentRouter
+
         @app.event("message")
         async def handle_message(event, say):
             # Ignore bot messages and subtypes (edits, etc.)
@@ -62,12 +64,15 @@ class SlackChannel:
 
             text = event.get("text", "")
             channel_id = event.get("channel", "")
-            agent_id = self._get_agent_id(channel_id, text)
+            base_agent = self._get_agent_id(channel_id, text)
 
-            if not agent_id:
+            if not base_agent:
                 logger.debug("No agent mapped for Slack channel %s — ignoring", channel_id)
                 return
 
+            router = AgentRouter(base_agent)
+            agent_id = router.resolve(text)
+            event = {**event, "text": router.strip_prefix(text)}
             envelope = tn.from_slack(event, agent_id)
             logger.info("Slack trigger: agent=%s trigger=%s", agent_id, envelope["id"])
 
@@ -78,9 +83,12 @@ class SlackChannel:
         async def handle_mention(event, say):
             text = event.get("text", "")
             channel_id = event.get("channel", "")
-            agent_id = self._get_agent_id(channel_id, text)
-            if not agent_id:
+            base_agent = self._get_agent_id(channel_id, text)
+            if not base_agent:
                 return
+            router = AgentRouter(base_agent)
+            agent_id = router.resolve(text)
+            event = {**event, "text": router.strip_prefix(text)}
             envelope = tn.from_slack(event, agent_id)
             logger.info("Slack mention trigger: agent=%s trigger=%s", agent_id, envelope["id"])
             if self.on_trigger:

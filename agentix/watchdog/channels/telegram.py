@@ -155,7 +155,11 @@ class TelegramChannel:
     async def _dispatch(self, update: dict) -> None:
         envelope = _normalise(update)
         if envelope:
-            envelope.payload["_agent_id"] = self._default_agent_id
+            from agentix.watchdog.channels.router import AgentRouter
+            router = AgentRouter(self._default_agent_id)
+            text = envelope.payload.get("text", "")
+            envelope.payload["_agent_id"] = router.resolve(text)
+            envelope.payload["text"] = router.strip_prefix(text)
             await self._on_trigger(envelope)
 
     # ------------------------------------------------------------------

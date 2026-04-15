@@ -46,6 +46,7 @@ class WhatsAppChannel:
         self._verify_token: str = cfg.get("whatsapp_verify_token") or os.environ.get("WHATSAPP_VERIFY_TOKEN", "")
         self._app_secret: str = cfg.get("whatsapp_app_secret") or os.environ.get("WHATSAPP_APP_SECRET", "")
         self._webhook_path: str = cfg.get("whatsapp_webhook_path", "/channels/whatsapp")
+        self._default_agent_id: str = cfg.get("default_agent_id", "")
         self._on_trigger = on_trigger
         self._app = app
 
@@ -99,12 +100,17 @@ class WhatsAppChannel:
         return web.Response(status=200, text="OK")
 
     async def _dispatch(self, data: dict) -> None:
+        from agentix.watchdog.channels.router import AgentRouter
+        router = AgentRouter(self._default_agent_id)
         for entry in data.get("entry", []):
             for change in entry.get("changes", []):
                 value = change.get("value", {})
                 for msg in value.get("messages", []):
                     envelope = _normalise(msg, value)
                     if envelope:
+                        text = envelope.payload.get("text", "")
+                        envelope.payload["_agent_id"] = router.resolve(text)
+                        envelope.payload["text"] = router.strip_prefix(text)
                         await self._on_trigger(envelope)
                 # Status updates (delivered / read) — skip
                 for _status in value.get("statuses", []):
