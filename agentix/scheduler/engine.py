@@ -315,17 +315,24 @@ class Scheduler:
 
     async def _fire_cron(self, schedule: dict) -> None:
         spec = json.loads(schedule["spec"])
+
+        # Advance next_run_at BEFORE firing so a slow on_trigger (or a crash)
+        # never causes the same slot to be re-queued by the next tick.
+        next_run = _cron_next(spec["expression"])
+        with self._tx() as cur:
+            updated = cur.execute(
+                "UPDATE schedules SET last_run_at=?, next_run_at=? WHERE id=? AND next_run_at=?",
+                (time.time(), next_run, schedule["id"], schedule["next_run_at"]),
+            ).rowcount
+        if not updated:
+            # Another task already advanced this slot — skip to avoid double-fire
+            logger.debug("Cron slot already advanced for %s — skipping duplicate fire", schedule["name"])
+            return
+
         envelope = self._make_envelope(schedule)
         logger.info("Cron firing: %s → agent=%s", schedule["name"], schedule["agent_id"])
         if self.on_trigger:
             await self.on_trigger(envelope)
-        # Advance next_run_at
-        next_run = _cron_next(spec["expression"])
-        with self._tx() as cur:
-            cur.execute(
-                "UPDATE schedules SET last_run_at=?, next_run_at=? WHERE id=?",
-                (time.time(), next_run, schedule["id"]),
-            )
 
     async def _fire_one_shot(self, schedule: dict) -> None:
         envelope = self._make_envelope(schedule)

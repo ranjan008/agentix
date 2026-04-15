@@ -23,16 +23,30 @@ logger = logging.getLogger(__name__)
 # Map skill name -> module path for built-in skills
 # Both hyphenated and underscore variants are accepted.
 _BUILTIN_SKILLS: dict[str, str] = {
+    # Web
     "web-search": "agentix.skills.builtin.web_search",
     "web_search": "agentix.skills.builtin.web_search",
     # web_fetch lives in the same module — referencing it as a skill registers the tool
     "web-fetch": "agentix.skills.builtin.web_search",
     "web_fetch": "agentix.skills.builtin.web_search",
+    # File / browser
     "file-ops": "agentix.skills.builtin.file_ops",
     "file_ops": "agentix.skills.builtin.file_ops",
+    "browser": "agentix.skills.builtin.browser",
+    # Email composer (inbound parsing helper — distinct from send_email)
     "email-composer": "agentix.skills.builtin.email_composer",
     "email_composer": "agentix.skills.builtin.email_composer",
-    "browser": "agentix.skills.builtin.browser",
+    # Outbound channel push skills (for use by cron agents)
+    "send_telegram": "agentix.skills.builtin.send_telegram",
+    "send-telegram": "agentix.skills.builtin.send_telegram",
+    "send_slack": "agentix.skills.builtin.send_slack",
+    "send-slack": "agentix.skills.builtin.send_slack",
+    "send_email": "agentix.skills.builtin.send_email",
+    "send-email": "agentix.skills.builtin.send_email",
+    "send_teams": "agentix.skills.builtin.send_teams",
+    "send-teams": "agentix.skills.builtin.send_teams",
+    "send_whatsapp": "agentix.skills.builtin.send_whatsapp",
+    "send-whatsapp": "agentix.skills.builtin.send_whatsapp",
 }
 
 
