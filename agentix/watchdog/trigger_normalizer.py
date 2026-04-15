@@ -145,6 +145,11 @@ def from_slack(event: dict, agent_id: str) -> dict:
 
 def from_scheduler(job: dict) -> dict:
     """Normalise a scheduled job trigger."""
+    # job["payload"] is the raw dict from the schedule YAML spec.payload
+    # It may contain "text" and/or "context" sub-keys.
+    raw_payload = job.get("payload", {})
+    text = raw_payload.get("text") or f"Scheduled job: {job.get('name', '')}"
+    context = raw_payload.get("context", {})
     return {
         "id": _new_id(),
         "timestamp": _now_iso(),
@@ -159,9 +164,9 @@ def from_scheduler(job: dict) -> dict:
             "tenant_id": job.get("tenant_id", "default"),
         },
         "payload": {
-            "text": f"Scheduled job: {job.get('name', '')}",
+            "text": text,
             "attachments": [],
-            "context": job.get("payload", {}),
+            "context": context,
         },
         "agent_id": job["agent"],
         "priority": job.get("priority", "normal"),

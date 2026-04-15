@@ -10,7 +10,6 @@ Endpoints:
 from __future__ import annotations
 
 import os
-import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -115,7 +114,6 @@ async def exchange_auth0_token(body: TokenExchangeRequest) -> LoginResponse:
     if not domain:
         raise HTTPException(status_code=400, detail="Auth0 not configured on this server")
 
-    import httpx
     import jwt as pyjwt
     from jwt import PyJWKClient
 

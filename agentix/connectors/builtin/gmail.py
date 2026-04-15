@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import base64
-import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 

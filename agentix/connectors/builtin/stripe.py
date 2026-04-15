@@ -65,9 +65,12 @@ class StripeConnector(BaseConnector):
     async def create_customer(self, email: str, name: str = "",
                               phone: str = "", description: str = "") -> dict:
         data: dict = {"email": email}
-        if name: data["name"] = name
-        if phone: data["phone"] = phone
-        if description: data["description"] = description
+        if name:
+            data["name"] = name
+        if phone:
+            data["phone"] = phone
+        if description:
+            data["description"] = description
         async with self._client() as c:
             r = await c.post("/customers", data=data)
             r.raise_for_status()
@@ -114,8 +117,10 @@ class StripeConnector(BaseConnector):
     async def create_payment_intent(self, amount: int, currency: str = "usd",
                                     customer_id: str = "", description: str = "") -> dict:
         data: dict = {"amount": str(amount), "currency": currency}
-        if customer_id: data["customer"] = customer_id
-        if description: data["description"] = description
+        if customer_id:
+            data["customer"] = customer_id
+        if description:
+            data["description"] = description
         async with self._client() as c:
             r = await c.post("/payment_intents", data=data)
             r.raise_for_status()

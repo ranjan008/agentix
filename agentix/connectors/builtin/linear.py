@@ -87,10 +87,14 @@ class LinearConnector(BaseConnector):
     async def update_issue(self, issue_id: str, title: str = "", description: str = "",
                            state_id: str = "", priority: int | None = None) -> dict:
         inp: dict = {}
-        if title: inp["title"] = title
-        if description: inp["description"] = description
-        if state_id: inp["stateId"] = state_id
-        if priority is not None: inp["priority"] = priority
+        if title:
+            inp["title"] = title
+        if description:
+            inp["description"] = description
+        if state_id:
+            inp["stateId"] = state_id
+        if priority is not None:
+            inp["priority"] = priority
         data = await self._gql(
             "mutation($id:String!,$input:IssueUpdateInput!){issueUpdate(id:$id,input:$input){success issue{id identifier}}}",
             {"id": issue_id, "input": inp}
