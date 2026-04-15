@@ -112,6 +112,8 @@ class TelegramChannel:
 
     async def _poll_loop(self) -> None:
         offset = 0
+        backoff = 5.0
+        consecutive_errors = 0
         async with aiohttp.ClientSession() as session:
             while self._running:
                 try:
@@ -126,14 +128,25 @@ class TelegramChannel:
                     async with session.get(f"{self._base}/getUpdates", params=params_list, timeout=aiohttp.ClientTimeout(total=40)) as r:
                         data = await r.json()
                     if data.get("ok"):
+                        if consecutive_errors > 0:
+                            log.info("Telegram polling recovered after %d error(s)", consecutive_errors)
+                        consecutive_errors = 0
+                        backoff = 5.0
                         for update in data.get("result", []):
                             offset = update["update_id"] + 1
                             await self._dispatch(update)
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    log.warning("Telegram poll error: %s", exc)
-                    await asyncio.sleep(5)
+                    consecutive_errors += 1
+                    # Log first error and every 12th after (once per minute at 5s backoff)
+                    if consecutive_errors == 1:
+                        log.warning("Telegram poll error: %s", exc)
+                    elif consecutive_errors % 12 == 0:
+                        log.warning("Telegram poll still failing (%d errors): %s", consecutive_errors, exc)
+                    # Exponential backoff capped at 60s
+                    await asyncio.sleep(min(backoff, 60.0))
+                    backoff = min(backoff * 1.5, 60.0)
 
     # ------------------------------------------------------------------
     # Normalisation

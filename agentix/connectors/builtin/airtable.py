@@ -69,8 +69,10 @@ class AirtableConnector(BaseConnector):
     async def list_records(self, table: str = "", filter_formula: str = "",
                            max_records: int = 20, sort: list | None = None) -> dict:
         params: dict = {"maxRecords": max_records}
-        if filter_formula: params["filterByFormula"] = filter_formula
-        if sort: params["sort"] = sort
+        if filter_formula:
+            params["filterByFormula"] = filter_formula
+        if sort:
+            params["sort"] = sort
         async with self._client() as c:
             r = await c.get(f"/{self._table(table)}", params=params)
             r.raise_for_status()

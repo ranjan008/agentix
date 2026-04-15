@@ -69,10 +69,14 @@ class HubSpotConnector(BaseConnector):
     async def create_contact(self, email: str, firstname: str = "", lastname: str = "",
                              phone: str = "", company: str = "") -> dict:
         props: dict = {"email": email}
-        if firstname: props["firstname"] = firstname
-        if lastname: props["lastname"] = lastname
-        if phone: props["phone"] = phone
-        if company: props["company"] = company
+        if firstname:
+            props["firstname"] = firstname
+        if lastname:
+            props["lastname"] = lastname
+        if phone:
+            props["phone"] = phone
+        if company:
+            props["company"] = company
         async with self._client() as c:
             r = await c.post("/crm/v3/objects/contacts", json={"properties": props})
             r.raise_for_status()

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 
-import httpx
 
 from agentix.connectors.base import BaseConnector, ConnectorAction, ConnectorMeta
 from agentix.connectors.registry import register_connector

@@ -76,8 +76,10 @@ class TwilioConnector(BaseConnector):
 
     async def list_messages(self, limit: int = 10, to: str = "", from_: str = "") -> dict:
         params: dict = {"PageSize": limit}
-        if to: params["To"] = to
-        if from_: params["From"] = from_
+        if to:
+            params["To"] = to
+        if from_:
+            params["From"] = from_
         async with self._client() as c:
             r = await c.get("/Messages.json", params=params)
             r.raise_for_status()

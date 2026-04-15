@@ -94,10 +94,13 @@ class SendGridConnector(BaseConnector):
     async def add_contact(self, email: str, first_name: str = "",
                           last_name: str = "", list_ids: list | None = None) -> dict:
         contact: dict = {"email": email}
-        if first_name: contact["first_name"] = first_name
-        if last_name: contact["last_name"] = last_name
+        if first_name:
+            contact["first_name"] = first_name
+        if last_name:
+            contact["last_name"] = last_name
         body: dict = {"contacts": [contact]}
-        if list_ids: body["list_ids"] = list_ids
+        if list_ids:
+            body["list_ids"] = list_ids
         async with self._client() as c:
             r = await c.put("/marketing/contacts", json=body)
             r.raise_for_status()
@@ -105,7 +108,8 @@ class SendGridConnector(BaseConnector):
 
     async def get_stats(self, start_date: str, end_date: str = "") -> dict:
         params: dict = {"start_date": start_date}
-        if end_date: params["end_date"] = end_date
+        if end_date:
+            params["end_date"] = end_date
         async with self._client() as c:
             r = await c.get("/stats", params=params)
             r.raise_for_status()
