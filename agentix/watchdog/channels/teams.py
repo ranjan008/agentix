@@ -43,6 +43,7 @@ class TeamsChannel:
         self._app_id: str = cfg.get("teams_app_id") or os.environ["TEAMS_APP_ID"]
         self._app_password: str = cfg.get("teams_app_password") or os.environ["TEAMS_APP_PASSWORD"]
         self._webhook_path: str = cfg.get("teams_webhook_path", "/channels/teams")
+        self._default_agent_id: str = cfg.get("default_agent_id", "")
         self._on_trigger = on_trigger
         self._app = app
         self._token_cache: dict = {}  # {"token": str, "expires_at": float}
@@ -79,6 +80,11 @@ class TeamsChannel:
     async def _dispatch(self, activity: dict) -> None:
         envelope = _normalise(activity)
         if envelope:
+            from agentix.watchdog.channels.router import AgentRouter
+            router = AgentRouter(self._default_agent_id)
+            text = envelope.payload.get("text", "")
+            envelope.payload["_agent_id"] = router.resolve(text)
+            envelope.payload["text"] = router.strip_prefix(text)
             await self._on_trigger(envelope)
 
     # ------------------------------------------------------------------

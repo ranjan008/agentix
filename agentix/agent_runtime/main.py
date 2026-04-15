@@ -15,7 +15,7 @@ import sys
 from agentix.agent_runtime.context_builder import build_messages, build_system_prompt, persist_turn
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec
 from agentix.agent_runtime.output_handler import route_output
-from agentix.agent_runtime.tool_executor import ToolExecutor
+from agentix.agent_runtime.tool_executor import ToolExecutor, _TOOL_REGISTRY
 from agentix.connectors.engine import ConnectorEngine
 from agentix.llm.router import build_router
 from agentix.skills.engine import SkillEngine
@@ -53,7 +53,8 @@ def run(envelope: dict) -> None:
     logger.info("Agent loaded: %s v%s", agent_id, agent_spec["metadata"].get("version", "?"))
 
     # --- Load skills ---
-    skill_engine = SkillEngine(store)
+    agent_dir = spec_path.parent if spec_path else None
+    skill_engine = SkillEngine(store, agent_dir=agent_dir)
     skill_names = agent_spec["spec"].get("skills", [])
     skill_instructions = skill_engine.load_skills(skill_names)
     skill_tools = skill_engine.get_tool_schemas(skill_names)
@@ -63,6 +64,10 @@ def run(envelope: dict) -> None:
     executor = ToolExecutor(allowed_tools)
     # Register skill-provided tools
     skill_engine.register_skill_tools(skill_names, executor)
+    # Also register any tools listed in spec.tools that are themselves builtin skills
+    # (e.g. web_fetch listed as a tool without the web-search skill being declared)
+    tool_names_list = agent_spec["spec"].get("tools", []) or []
+    skill_engine.register_skill_tools(tool_names_list, executor)
 
     # --- Prepare connector engine ---
     connector_engine = ConnectorEngine(store)
@@ -99,7 +104,7 @@ def run(envelope: dict) -> None:
         nonlocal final_text, iterations, messages
 
         # Load connectors (async: network calls to verify credentials)
-        await connector_engine.load_for_agent(connector_refs, executor._registry)
+        await connector_engine.load_for_agent(connector_refs, _TOOL_REGISTRY)
         tool_schemas.extend(connector_engine.tool_schemas())
 
         try:
