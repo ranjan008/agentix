@@ -13,6 +13,7 @@ import os
 import sys
 
 from agentix.agent_runtime.context_builder import build_messages, build_system_prompt, persist_turn
+from agentix.agent_runtime.context_compactor import compact_messages
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec
 from agentix.agent_runtime.output_handler import route_output
 from agentix.agent_runtime.tool_executor import ToolExecutor, _TOOL_REGISTRY
@@ -60,14 +61,17 @@ def run(envelope: dict) -> None:
     skill_tools = skill_engine.get_tool_schemas(skill_names)
 
     # --- Build tool executor ---
+    # spec.tools is an optional permission allowlist — if absent, all skill-registered
+    # tools are callable. Skills are the single source of tool registration and schemas.
     allowed_tools = agent_spec["spec"].get("tools", None)
     executor = ToolExecutor(allowed_tools)
-    # Register skill-provided tools
+    # Register tools from skills (primary path)
     skill_engine.register_skill_tools(skill_names, executor)
-    # Also register any tools listed in spec.tools that are themselves builtin skills
-    # (e.g. web_fetch listed as a tool without the web-search skill being declared)
-    tool_names_list = agent_spec["spec"].get("tools", []) or []
-    skill_engine.register_skill_tools(tool_names_list, executor)
+    # If spec.tools lists names that are also builtin skill aliases (e.g. web_fetch),
+    # register those too so standalone tool declarations still work.
+    extra_tool_names = [t for t in (allowed_tools or []) if t not in skill_names]
+    if extra_tool_names:
+        skill_engine.register_skill_tools(extra_tool_names, executor)
 
     # --- Prepare connector engine ---
     connector_engine = ConnectorEngine(store)
@@ -85,11 +89,11 @@ def run(envelope: dict) -> None:
     system_prompt = build_system_prompt(agent_spec, skill_instructions)
     messages = build_messages(envelope, agent_spec, store)
 
-    # Collect all tool schemas (built-in tools + skill tools), deduplicated by name
-    tool_names = agent_spec["spec"].get("tools", [])
+    # Tool schemas come from skills only — deduplicated by name.
+    # spec.tools is purely a permission filter; it does not add extra schemas.
     _seen: set[str] = set()
     tool_schemas: list[dict] = []
-    for schema in executor.get_tool_schemas(tool_names) + skill_tools:
+    for schema in skill_tools:
         if schema["name"] not in _seen:
             _seen.add(schema["name"])
             tool_schemas.append(schema)
@@ -101,6 +105,13 @@ def run(envelope: dict) -> None:
     agent_temperature = agent_llm_cfg.get("temperature", 1.0)
     agent_max_tokens = agent_llm_cfg.get("max_tokens", 4096)
     agent_tags = agent_spec["spec"].get("tags", [])
+
+    # Context compaction config
+    ctx_cfg = agent_spec["spec"].get("context", {})
+    compaction_budget = int(ctx_cfg.get("token_budget", 20_000))
+    compaction_strategy = ctx_cfg.get("compaction_strategy", "truncate")
+    compaction_max_tool_chars = int(ctx_cfg.get("max_tool_result_chars", 2_000))
+    compaction_keep_turns = int(ctx_cfg.get("keep_recent_turns", 4))
 
     # --- Agentic loop ---
     store.audit("agent.started", envelope["id"], agent_id, envelope["caller"]["identity_id"])
@@ -124,6 +135,18 @@ def run(envelope: dict) -> None:
         try:
             while iterations < max_iterations:
                 iterations += 1
+
+                # Compact context before every LLM call to stay within token budget
+                messages = compact_messages(
+                    messages,
+                    token_budget=compaction_budget,
+                    strategy=compaction_strategy,
+                    max_tool_result_chars=compaction_max_tool_chars,
+                    keep_recent_turns=compaction_keep_turns,
+                    llm=llm,
+                    system_prompt=system_prompt,
+                )
+
                 response = await llm.complete(
                     messages=messages,
                     system=system_prompt,
