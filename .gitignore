@@ -15,7 +15,6 @@ data/
 *.db-wal
 
 # Secrets
-.env
 
 # Node / UI
 node_modules/
@@ -24,6 +23,6 @@ ui/.vite/
 *.tsbuildinfo
 
 # Editor
-.vscode/
 .idea/
 *.swp
+config.bat

@@ -41,35 +41,19 @@ spec:
     - browser       # Playwright browser + LinkedIn tools
     - web-search    # DuckDuckGo web search + fetch for news/articles
     - file-ops      # Read skip_list.txt, write output reports
+  # skills are the single source of tool registration — no separate tools: list needed.
+  # Use tools: only if you need to restrict a subset of what skills provide.
 
   # -------------------------------------------------------------------------
-  # Tools the agent is allowed to call
+  # Context compaction — very high risk: browser HTML + web articles + file reads
+  # across 80 tool calls. Summarize strategy used so older research is condensed
+  # rather than blindly truncated, preserving ICP scores and prospect notes.
   # -------------------------------------------------------------------------
-  tools:
-    # Browser / LinkedIn
-    - browser_navigate
-    - browser_get_text
-    - browser_get_links
-    - browser_click
-    - browser_fill
-    - browser_scroll
-    - browser_screenshot
-    - browser_wait
-    - browser_evaluate
-    - browser_close
-    - linkedin_get_profile
-    - linkedin_get_feed_posts
-    - linkedin_search_people
-    - linkedin_send_message
-
-    # Web research
-    - web_search
-    - web_fetch
-
-    # File I/O — read skip list, write prospect reports
-    - file_read
-    - file_write
-    - file_list
+  context:
+    token_budget: 20000
+    compaction_strategy: summarize
+    max_tool_result_chars: 1500
+    keep_recent_turns: 4
 
   # -------------------------------------------------------------------------
   # Memory — persist research state across multi-turn conversations

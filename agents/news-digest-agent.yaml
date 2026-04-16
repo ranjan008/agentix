@@ -15,9 +15,16 @@ spec:
     max_tokens: 4096
 
   skills:
-    - web_search
-    - web_fetch
-    - send_telegram
+    - web_search     # provides web_search tool
+    - web_fetch      # provides web_fetch tool
+    - send_telegram  # outbound Telegram delivery
+
+  # Context compaction — high risk: 13 topics × 2-3 web fetches each = large accumulated context
+  context:
+    token_budget: 15000
+    compaction_strategy: truncate
+    max_tool_result_chars: 1000
+    keep_recent_turns: 3
 
   timeout_sec: 540
   max_tool_calls: 60
