@@ -11,18 +11,19 @@ spec:
     temperature: 0.3
     max_tokens: 4096
 
-  # Built-in skills to activate
+  # Built-in skills — each skill brings its own instructions + tools.
+  # No separate tools: list needed; skills are the single source of truth.
   skills:
-    - "web-search"
-    - "file-ops"
+    - "web-search"   # provides web_search + web_fetch
+    - "file-ops"     # provides file_read + file_write + file_list
 
-  # Tools this agent is allowed to call
-  tools:
-    - "web_search"
-    - "web_fetch"
-    - "file_read"
-    - "file_write"
-    - "file_list"
+  # Context compaction — keeps the message history within the token budget
+  # to avoid 429 rate limit errors when reading large files across many turns.
+  context:
+    token_budget: 18000          # trigger compaction at ~18k estimated tokens
+    compaction_strategy: truncate
+    max_tool_result_chars: 2000  # truncate large file reads in older turns
+    keep_recent_turns: 4         # last 4 assistant+user pairs always kept intact
 
   # Memory configuration (Lite tier: SQLite)
   memory:

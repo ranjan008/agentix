@@ -12,11 +12,14 @@ spec:
     max_tokens: 2048
 
   skills:
-    - "email-composer"
+    - "email-composer"   # provides email_compose + email_send
 
-  tools:
-    - "email_compose"
-    - "email_send"
+  # Context compaction — low risk agent but good hygiene for multi-turn drafting
+  context:
+    token_budget: 20000
+    compaction_strategy: truncate
+    max_tool_result_chars: 3000
+    keep_recent_turns: 4
 
   memory:
     short_term: "sqlite"
