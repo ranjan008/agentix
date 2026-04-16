@@ -29,9 +29,13 @@ _BUILTIN_SKILLS: dict[str, str] = {
     # web_fetch lives in the same module — referencing it as a skill registers the tool
     "web-fetch": "agentix.skills.builtin.web_search",
     "web_fetch": "agentix.skills.builtin.web_search",
-    # File / browser
+    # File / browser — the skill bundle and individual tool names both work
     "file-ops": "agentix.skills.builtin.file_ops",
     "file_ops": "agentix.skills.builtin.file_ops",
+    # Individual tool aliases: listing file_read/write/list as a skill loads the full file_ops module
+    "file_read": "agentix.skills.builtin.file_ops",
+    "file_write": "agentix.skills.builtin.file_ops",
+    "file_list": "agentix.skills.builtin.file_ops",
     "browser": "agentix.skills.builtin.browser",
     # Email composer (inbound parsing helper — distinct from send_email)
     "email-composer": "agentix.skills.builtin.email_composer",
