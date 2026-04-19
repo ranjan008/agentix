@@ -81,6 +81,34 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _extract_text(body: dict) -> str:
+    """
+    Best-effort extraction of a human-readable text string from an HTTP body.
+
+    Priority:
+      1. body.text   — explicit text field (standard trigger payload)
+      2. body.subject + body.body — email-style payload (deal triage, etc.)
+      3. body.message / body.content — common alternative field names
+      4. Empty string fallback
+    """
+    if body.get("text"):
+        return body["text"]
+    # Email-style payload: compose subject + body into a single text block
+    if body.get("subject") or body.get("body"):
+        parts: list[str] = []
+        if body.get("subject"):
+            parts.append(f"Subject: {body['subject']}")
+        if body.get("sender"):
+            parts.append(f"From: {body['sender']}")
+        if body.get("received_at"):
+            parts.append(f"Received: {body['received_at']}")
+        if body.get("body"):
+            parts.append(f"\n{body['body']}")
+        return "\n".join(parts)
+    # Other common field names
+    return body.get("message") or body.get("content") or ""
+
+
 def from_http(
     body: dict,
     headers: dict,
@@ -104,7 +132,7 @@ def from_http(
         },
         "caller": caller,
         "payload": {
-            "text": body.get("text", ""),
+            "text": _extract_text(body),
             "attachments": body.get("attachments", []),
             "context": body.get("context", {}),
         },

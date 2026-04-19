@@ -69,8 +69,8 @@ export function Table({ headers, children }: {
   )
 }
 
-export function TableRow({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <tr className={`hover:bg-white/[0.03] transition-colors ${className}`}>{children}</tr>
+export function TableRow({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
+  return <tr onClick={onClick} className={`hover:bg-white/[0.03] transition-colors ${className}`}>{children}</tr>
 }
 
 export function Td({ children, className = '' }: { children?: ReactNode; className?: string }) {
