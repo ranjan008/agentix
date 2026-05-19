@@ -62,7 +62,8 @@ class AgentSpawner:
             try:
                 from dotenv import dotenv_values
                 for k, v in dotenv_values().items():
-                    env.setdefault(k, v)
+                    if v is not None:
+                        env.setdefault(k, v)
             except Exception:
                 pass
             env["AGENTIX_TRIGGER"] = json.dumps(envelope)
