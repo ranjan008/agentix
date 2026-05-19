@@ -151,16 +151,19 @@ class LLMRouter:
         chain = self._build_fallback_chain(provider_name)
 
         last_exc: Exception | None = None
-        for pname in chain:
+        for i, pname in enumerate(chain):
             p = self._providers.get(pname)
             if p is None:
                 log.warning("LLMRouter: provider '%s' not available, skipping", pname)
                 continue
+            # Only pass the caller-specified model to the primary provider.
+            # Fallback providers use their own configured default model.
+            model_for_call = model if i == 0 else None
             try:
                 t0 = time.monotonic()
                 resp = await p.complete(
                     messages=messages,
-                    model=model,
+                    model=model_for_call,
                     tools=tools,
                     system=system,
                     max_tokens=max_tokens,

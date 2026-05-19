@@ -10,6 +10,12 @@ import os
 import signal
 import sys
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from agentix.watchdog.agent_spawner import AgentSpawner
 from agentix.watchdog.auth import RateLimiter
 from agentix.watchdog.channels.registry import ChannelRegistry

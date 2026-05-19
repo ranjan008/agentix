@@ -351,6 +351,31 @@ class Scheduler:
         steps = spec["steps"]
         trigger_spec = spec["trigger"]
 
+        # --- Fix 2a: advance/disable schedule BEFORE starting the pipeline.
+        # A long pipeline can span multiple cron ticks; without this the same
+        # schedule is re-selected by _tick() on every tick while it is running.
+        # Use the same CAS pattern as _fire_cron to prevent concurrent double-fire.
+        if trigger_spec["type"] == "cron":
+            next_run = _cron_next(trigger_spec["expression"])
+            with self._tx() as cur:
+                updated = cur.execute(
+                    "UPDATE schedules SET last_run_at=?, next_run_at=? WHERE id=? AND next_run_at=?",
+                    (time.time(), next_run, schedule["id"], schedule["next_run_at"]),
+                ).rowcount
+            if not updated:
+                logger.debug("DAG slot already advanced for %s — skipping duplicate fire", schedule["name"])
+                return
+        else:
+            # One-shot: disable immediately so tick never re-fires it while running.
+            with self._tx() as cur:
+                updated = cur.execute(
+                    "UPDATE schedules SET enabled=0, last_run_at=? WHERE id=? AND enabled=1",
+                    (time.time(), schedule["id"]),
+                ).rowcount
+            if not updated:
+                logger.debug("DAG one-shot already disabled for %s — skipping", schedule["name"])
+                return
+
         run_id = f"run_{uuid.uuid4().hex[:12]}"
         with self._tx() as cur:
             cur.execute(
@@ -367,7 +392,8 @@ class Scheduler:
             if not ready:
                 break
 
-            # Fire all ready steps in parallel
+            # Fire all ready steps in parallel and WAIT for each agent to finish
+            # before advancing to the next wave (see _fire_dag_step).
             results = await asyncio.gather(
                 *[self._fire_dag_step(schedule, step, run_id) for step in ready],
                 return_exceptions=True,
@@ -401,30 +427,48 @@ class Scheduler:
                 (final_status, time.time(), run_id),
             )
 
-        # Advance / disable schedule
-        if trigger_spec["type"] == "cron":
-            next_run = _cron_next(trigger_spec["expression"])
-            with self._tx() as cur:
-                cur.execute(
-                    "UPDATE schedules SET last_run_at=?, next_run_at=? WHERE id=?",
-                    (time.time(), next_run, schedule["id"]),
-                )
-        else:
-            with self._tx() as cur:
-                cur.execute(
-                    "UPDATE schedules SET enabled=0, last_run_at=? WHERE id=?",
-                    (time.time(), schedule["id"]),
-                )
-
         logger.info("DAG pipeline %s: run=%s status=%s", schedule["name"], run_id, final_status)
 
     async def _fire_dag_step(self, schedule: dict, step: dict, run_id: str) -> None:
+        """
+        Dispatch a DAG step and block until the agent process completes.
+
+        Fix 2b: on_trigger (→ spawner.spawn) returns as soon as the subprocess
+        is *created* — it does NOT wait for the agent to finish. Without polling
+        here the DAG would mark every step done instantly and fire all waves at
+        once, defeating the dependency graph entirely.
+        """
         envelope = self._make_envelope(schedule, override_agent=step["agent"])
         envelope["payload"]["context"]["pipeline_run_id"] = run_id
         envelope["payload"]["context"]["step_id"] = step["id"]
+        trigger_id = envelope["id"]
+        step_timeout = float(step.get("timeout_sec", 300))
+
         logger.info("DAG step firing: %s/%s → agent=%s", schedule["name"], step["id"], step["agent"])
         if self.on_trigger:
             await self.on_trigger(envelope)
+
+        # Poll the triggers table until the agent subprocess writes a terminal status.
+        status = await self._wait_trigger_complete(trigger_id, timeout_sec=step_timeout)
+        if status != "done":
+            raise RuntimeError(f"Step '{step['id']}' did not complete successfully (status={status})")
+
+    async def _wait_trigger_complete(self, trigger_id: str, timeout_sec: float = 300.0) -> str:
+        """Poll triggers table until status is 'done' or 'failed', or timeout."""
+        deadline = time.time() + timeout_sec
+        while time.time() < deadline:
+            try:
+                with self._conn() as conn:
+                    row = conn.execute(
+                        "SELECT status FROM triggers WHERE id=?", (trigger_id,)
+                    ).fetchone()
+                if row and row["status"] in ("done", "failed"):
+                    return row["status"]
+            except Exception as exc:
+                logger.warning("Error polling trigger %s: %s", trigger_id, exc)
+            await asyncio.sleep(2.0)
+        logger.warning("DAG step trigger %s timed out after %.0fs", trigger_id, timeout_sec)
+        return "timeout"
 
     # ------------------------------------------------------------------
     # Helpers
