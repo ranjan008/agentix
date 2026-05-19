@@ -17,7 +17,8 @@ class AnthropicProvider(BaseLLMProvider):
 
     def __init__(self, cfg: dict) -> None:
         super().__init__(cfg)
-        self._api_key = cfg.get("api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+        key_env = cfg.get("api_key_env", "ANTHROPIC_API_KEY")
+        self._api_key = cfg.get("api_key") or os.environ.get(key_env, "")
         self._default_model = cfg.get("model", "claude-sonnet-4-6")
         self._client = None
 

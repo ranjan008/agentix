@@ -55,12 +55,18 @@ class AgentSpawner:
         async with self._semaphore:
             logger.info("Spawning agent process: agent=%s trigger=%s", agent_id, trigger_id)
 
-            # Pass the envelope to the agent runtime via env variable
-            env = {
-                **os.environ,
-                "AGENTIX_TRIGGER": json.dumps(envelope),
-                "AGENTIX_DB_PATH": self.db_path,
-            }
+            # Pass the envelope to the agent runtime via env variable.
+            # Also inject any vars from a .env file that may not be in os.environ
+            # (e.g. when the watchdog itself was started without them pre-loaded).
+            env = dict(os.environ)
+            try:
+                from dotenv import dotenv_values
+                for k, v in dotenv_values().items():
+                    env.setdefault(k, v)
+            except Exception:
+                pass
+            env["AGENTIX_TRIGGER"] = json.dumps(envelope)
+            env["AGENTIX_DB_PATH"] = self.db_path
 
             # Locate the agent_runtime entry point
             runtime_module = "agentix.agent_runtime.main"
@@ -80,7 +86,17 @@ class AgentSpawner:
                     )
                 except asyncio.TimeoutError:
                     proc.kill()
-                    logger.error("Agent timed out: agent=%s trigger=%s", agent_id, trigger_id)
+                    try:
+                        _tout, _terr = await proc.communicate()
+                        if _terr:
+                            logger.error(
+                                "Agent timed out (stderr): agent=%s trigger=%s\n%s",
+                                agent_id, trigger_id, _terr.decode(errors="replace")[-3000:],
+                            )
+                        else:
+                            logger.error("Agent timed out: agent=%s trigger=%s", agent_id, trigger_id)
+                    except Exception:
+                        logger.error("Agent timed out: agent=%s trigger=%s", agent_id, trigger_id)
                     if self.on_complete:
                         self.on_complete(trigger_id, False, "timeout")
                     return
@@ -89,7 +105,7 @@ class AgentSpawner:
                     err = stderr.decode(errors="replace").strip()
                     logger.info("Agent completed: agent=%s trigger=%s", agent_id, trigger_id)
                     if err:
-                        logger.debug("Agent stderr: agent=%s\n%s", agent_id, err[-2000:])
+                        logger.info("Agent stderr: agent=%s\n%s", agent_id, err[-3000:])
                     if self.on_complete:
                         self.on_complete(trigger_id, True, None)
                 else:

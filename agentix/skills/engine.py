@@ -124,7 +124,12 @@ class SkillEngine:
 
         # 2. Local path (starts with ./ or /)
         if name.startswith("./") or name.startswith("/"):
-            skill_dir = Path(name)
+            raw = Path(name)
+            # Prefer resolving relative to the agent's own directory
+            if self.agent_dir and not raw.is_absolute():
+                skill_dir = (self.agent_dir / name).resolve()
+            else:
+                skill_dir = raw.resolve()
             skill_init = skill_dir / "__init__.py"
             if skill_init.exists():
                 import importlib.util as _importlib_util

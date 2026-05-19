@@ -103,7 +103,14 @@ def _resolve_system_prompt(spec: dict, base_dir: Path) -> None:
 def find_agent_spec(agent_id: str, agents_dir: str | Path = "agents") -> Path | None:
     """Locate an agent YAML file by agent_id."""
     agents_dir = Path(agents_dir)
-    for pattern in (f"{agent_id}.yaml", f"{agent_id}.yml", f"**/{agent_id}.yaml"):
+    for pattern in (
+        f"{agent_id}.yaml",
+        f"{agent_id}.yml",
+        f"**/{agent_id}.yaml",
+        f"{agent_id}/agent.yaml",
+        f"{agent_id}/agent.yml",
+        f"**/{agent_id}/agent.yaml",
+    ):
         matches = list(agents_dir.glob(pattern))
         if matches:
             return matches[0]

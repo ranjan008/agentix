@@ -24,7 +24,21 @@ from agentix.storage.state_store import StateStore
 from agentix.watchdog.auth import make_jwt
 
 
-def _get_store(db_path: str = "data/agentix.db") -> StateStore:
+def _get_store(db_path: str = "data/agentix.db", config_path: str = "config/watchdog.yaml"):
+    """Return the correct store — PostgreSQL if watchdog.yaml has database_url, else SQLite."""
+    try:
+        if Path(config_path).exists():
+            with open(config_path) as f:
+                cfg = yaml.safe_load(f) or {}
+            # watchdog.yaml wraps everything under a 'watchdog' key
+            cfg = cfg.get("watchdog", cfg)
+            from agentix.storage.standard import build_store
+            store = build_store(cfg)
+            # If build_store gave us a PostgreSQLStateStore, use it
+            if not isinstance(store, StateStore):
+                return store
+    except Exception:
+        pass
     return StateStore(db_path)
 
 

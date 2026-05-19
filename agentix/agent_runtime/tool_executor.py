@@ -3,6 +3,7 @@ Tool Executor — dispatches tool_use blocks from the LLM to registered tool fun
 """
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 from typing import Any, Callable
@@ -26,7 +27,7 @@ class ToolExecutor:
         # allowed_tools = None means all registered tools are allowed
         self.allowed_tools = set(allowed_tools) if allowed_tools is not None else None
 
-    def execute(self, tool_name: str, tool_input: dict) -> Any:
+    async def execute(self, tool_name: str, tool_input: dict) -> Any:
         if self.allowed_tools is not None and tool_name not in self.allowed_tools:
             raise PermissionError(f"Tool '{tool_name}' is not in this agent's allowed tool list")
 
@@ -36,7 +37,15 @@ class ToolExecutor:
 
         logger.info("Executing tool: %s input=%s", tool_name, json.dumps(tool_input)[:200])
         try:
-            result = fn(**tool_input)
+            # Check the function definition, not the return value — more reliable
+            # than inspect.isawaitable() which misses wrapped/decorated coroutines.
+            if inspect.iscoroutinefunction(fn):
+                result = await fn(**tool_input)
+            else:
+                result = fn(**tool_input)
+                # Fallback: sync function that happens to return an awaitable
+                if inspect.isawaitable(result):
+                    result = await result
             logger.debug("Tool '%s' result: %s", tool_name, str(result)[:200])
             return result
         except Exception as exc:

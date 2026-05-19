@@ -12,6 +12,19 @@ import logging
 import os
 import sys
 
+try:
+    from dotenv import load_dotenv
+    import pathlib as _pl
+    # Search upward from CWD for a .env file
+    _cwd = _pl.Path.cwd()
+    for _p in [_cwd / ".env", *[p / ".env" for p in _cwd.parents]]:
+        if _p.exists():
+            load_dotenv(dotenv_path=_p)
+            break
+    del _cwd, _p, _pl
+except Exception:
+    pass
+
 from agentix.agent_runtime.context_builder import build_messages, build_system_prompt, persist_turn
 from agentix.agent_runtime.context_compactor import compact_messages
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec
@@ -37,7 +50,14 @@ def run(envelope: dict) -> None:
     db_path = os.environ.get("AGENTIX_DB_PATH", "data/agentix.db")
     agents_dir = os.environ.get("AGENTIX_AGENTS_DIR", "agents")
 
-    store = StateStore(db_path)
+    # Use the same store backend as the watchdog (PostgreSQL if configured)
+    config_path = os.environ.get("AGENTIX_CONFIG", "config/watchdog.yaml")
+    try:
+        from agentix.storage.standard import build_store
+        _cfg = load_config(config_path)
+        store = build_store(_cfg)
+    except Exception:
+        store = StateStore(db_path)
 
     # --- Load agent spec ---
     spec_path = find_agent_spec(agent_id, agents_dir)
@@ -176,7 +196,7 @@ def run(envelope: dict) -> None:
                     tool_results = []
                     for tc in response.tool_calls:
                         try:
-                            result = executor.execute(tc.name, tc.input)
+                            result = await executor.execute(tc.name, tc.input)
                             tool_results.append({
                                 "type": "tool_result",
                                 "tool_use_id": tc.id,

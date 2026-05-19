@@ -160,7 +160,28 @@ class TelegramChannel:
             text = envelope.payload.get("text", "")
             envelope.payload["_agent_id"] = router.resolve(text)
             envelope.payload["text"] = router.strip_prefix(text)
+
+            # Resolve file_id → direct download URL so the agent can pass it to parse_bill
+            media = envelope.payload.get("media")
+            if media and media.get("file_id") and not media.get("file_url"):
+                try:
+                    file_url = await self._resolve_file_url(media["file_id"])
+                    media["file_url"] = file_url
+                except Exception as exc:
+                    log.warning("Could not resolve Telegram file URL: %s", exc)
+
             await self._on_trigger(envelope)
+
+    async def _resolve_file_url(self, file_id: str) -> str:
+        """Convert a Telegram file_id to a direct HTTPS download URL."""
+        async with aiohttp.ClientSession() as s:
+            async with s.get(f"{self._base}/getFile", params={"file_id": file_id}) as r:
+                data = await r.json()
+        if not data.get("ok"):
+            raise RuntimeError(f"getFile failed: {data}")
+        file_path = data["result"]["file_path"]
+        token = self._token
+        return f"https://api.telegram.org/file/bot{token}/{file_path}"
 
     # ------------------------------------------------------------------
     # Outbound helper (send text reply)
@@ -185,17 +206,47 @@ def _normalise(update: dict) -> TriggerEnvelope | None:
     if msg:
         chat = msg.get("chat", {})
         sender = msg.get("from", {})
-        text = msg.get("text", "")
+        text = msg.get("text") or msg.get("caption") or ""
+
+        payload: dict = {
+            "text": text,
+            "chat_id": chat.get("id"),
+            "chat_type": chat.get("type"),
+            "message_id": msg.get("message_id"),
+            "update_id": update.get("update_id"),
+        }
+
+        # Photo — take the highest-resolution version (last in array)
+        if "photo" in msg:
+            photos = msg["photo"]
+            best = photos[-1] if photos else {}
+            payload["media"] = {
+                "type": "photo",
+                "file_id": best.get("file_id"),
+                "file_unique_id": best.get("file_unique_id"),
+                "width": best.get("width"),
+                "height": best.get("height"),
+                "file_size": best.get("file_size"),
+            }
+            payload["has_media"] = True
+
+        # Document (PDF bills sent as files)
+        elif "document" in msg:
+            doc = msg["document"]
+            payload["media"] = {
+                "type": "document",
+                "file_id": doc.get("file_id"),
+                "file_unique_id": doc.get("file_unique_id"),
+                "file_name": doc.get("file_name"),
+                "mime_type": doc.get("mime_type"),
+                "file_size": doc.get("file_size"),
+            }
+            payload["has_media"] = True
+
         return TriggerEnvelope(
             channel="telegram",
             event_type="message",
-            payload={
-                "text": text,
-                "chat_id": chat.get("id"),
-                "chat_type": chat.get("type"),
-                "message_id": msg.get("message_id"),
-                "update_id": update.get("update_id"),
-            },
+            payload=payload,
             identity={
                 "user_id": str(sender.get("id", "")),
                 "username": sender.get("username", ""),

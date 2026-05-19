@@ -166,13 +166,18 @@ def _compact_truncate(
     protected_count = keep_recent_turns * 2
     compactable_end = max(0, len(msgs) - protected_count)
 
-    # Pass 1 — truncate large tool_result content in compactable region
+    # Pass 1 — truncate large content in compactable region
     for i in range(compactable_end):
         msg = msgs[i]
         content = msg.get("content")
         if isinstance(content, list):
             for block in content:
-                if isinstance(block, dict) and block.get("type") == "tool_result":
+                if not isinstance(block, dict):
+                    continue
+                btype = block.get("type")
+
+                # tool_result — result text returned from a tool call (user message)
+                if btype == "tool_result":
                     block_content = block.get("content", "")
                     if isinstance(block_content, str) and len(block_content) > max_tool_result_chars:
                         removed = len(block_content) - max_tool_result_chars
@@ -180,6 +185,20 @@ def _compact_truncate(
                             block_content[:max_tool_result_chars]
                             + _TRUNCATION_MARKER.format(removed=removed)
                         )
+
+                # tool_use — the input the LLM sent to a tool (assistant message).
+                # file_write / file_read inputs can carry large content strings.
+                elif btype == "tool_use":
+                    inp = block.get("input")
+                    if isinstance(inp, dict):
+                        for key, val in inp.items():
+                            if isinstance(val, str) and len(val) > max_tool_result_chars:
+                                removed = len(val) - max_tool_result_chars
+                                inp[key] = (
+                                    val[:max_tool_result_chars]
+                                    + _TRUNCATION_MARKER.format(removed=removed)
+                                )
+
         elif isinstance(content, str) and len(content) > max_tool_result_chars * 2:
             # Large assistant text in old turns — also trim
             removed = len(content) - max_tool_result_chars * 2

@@ -154,7 +154,7 @@ class PostgreSQLStateStore:
                 row = cur.fetchone()
         finally:
             conn.close()
-        return json.loads(row[0]) if row else None
+        return (row[0] if not isinstance(row[0], (str, bytes, bytearray)) else json.loads(row[0])) if row else None
 
     def set_state(self, agent_id: str, scope: str, key: str, value: Any, ttl_sec: int | None = None) -> None:
         now = time.time()
@@ -190,7 +190,7 @@ class PostgreSQLStateStore:
             return None
         if row[1] and now > row[1]:
             return None
-        return json.loads(row[0])
+        return row[0] if not isinstance(row[0], (str, bytes, bytearray)) else json.loads(row[0])
 
     def create_trigger(self, envelope: dict) -> None:
         conn = self._connect()
