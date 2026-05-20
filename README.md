@@ -2,7 +2,7 @@
 
 **Serverless Agentic Platform — Zero-Idle, Event-Driven, Secure by Default**
 
-Agentix is an open-source infrastructure layer for building and running production AI agents. Agents are defined as YAML files, triggered by any inbound channel (HTTP, Slack, WhatsApp, Telegram, Email, SQS, gRPC, Teams), and execute autonomously with LLM routing, tool use, vector memory, and full enterprise security built in.
+Agentix is an open-source infrastructure layer for building and running production AI agents. Agents are defined as YAML files, triggered by any inbound channel (HTTP, Slack, WhatsApp, Telegram, Email, SQS, gRPC, Teams), and execute autonomously with LLM routing, tool use, graph orchestration, human-in-the-loop checkpoints, distributed tracing, and full enterprise compliance built in.
 
 [![CI](https://github.com/ranjan008/agentix/actions/workflows/ci.yaml/badge.svg)](https://github.com/ranjan008/agentix/actions/workflows/ci.yaml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
@@ -18,6 +18,11 @@ Agentix is an open-source infrastructure layer for building and running producti
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
 - [Agent Definition](#agent-definition)
+- [Graph Engine](#graph-engine)
+- [Multi-Agent Orchestration](#multi-agent-orchestration)
+- [Human-in-the-Loop (HITL)](#human-in-the-loop-hitl)
+- [Observability & Tracing](#observability--tracing)
+- [Eval Framework](#eval-framework)
 - [Channels](#channels)
 - [LLM Providers](#llm-providers)
 - [Skills & Tools](#skills--tools)
@@ -42,16 +47,22 @@ Slack / WhatsApp / HTTP / Email / SQS / gRPC
      │  Watchdog  │  ← normalises triggers, enforces RBAC
      └─────┬─────┘
            │  TriggerEnvelope
-     ┌─────▼──────┐
-     │ Agent Runtime│ ← loads agent YAML, builds context
-     └─────┬──────┘
+     ┌─────▼──────────┐
+     │  Agent Runtime  │  ← loads agent YAML, builds context
+     │                 │
+     │  ┌───────────┐  │        ┌──────────────────────┐
+     │  │ Agentic   │  │───────▶│ Anthropic / OpenAI   │
+     │  │   Loop    │  │        │ Gemini / Bedrock      │
+     │  └─────┬─────┘  │        │ Ollama / vLLM         │
+     │        │        │        └──────────────────────┘
+     │  ┌─────▼─────┐  │
+     │  │   Graph   │  │  ← graph mode: nodes, edges, state
+     │  │  Engine   │  │
+     │  └───────────┘  │
+     └─────┬───────────┘
            │
-     ┌─────▼──────┐        ┌─────────────────┐
-     │ LLM Router  │───────▶│ Anthropic / OpenAI│
-     └─────┬──────┘        │ Gemini / Bedrock  │
-           │               └─────────────────┘
      ┌─────▼──────┐
-     │ Tool Executor│ ← web_search, file_ops, email, custom tools
+     │Tool Executor│ ← web_search, file_ops, email, custom tools
      └─────┬──────┘
            │
      ┌─────▼──────┐
@@ -69,17 +80,52 @@ Slack / WhatsApp / HTTP / Email / SQS / gRPC
 - **Agentic Loop** — multi-turn LLM ↔ tool execution loop with configurable iteration and timeout limits
 - **Unified TriggerEnvelope** — normalises all inbound events to a single schema before dispatch
 
+### Graph Engine *(new)*
+- **YAML-defined graphs** — declare nodes, edges, and state schema in the agent spec; no code required
+- **Four node types** — `agent` (LLM call), `tool` (tool executor), `router` (conditional branching), `lambda` (state transform)
+- **Four state reducers** — `replace`, `append`, `merge`, `add` — declared per field, applied automatically between steps
+- **Conditional routing** — router nodes evaluate Python lambdas against state to select the next branch
+- **Quality-gate loops** — loop back until a confidence threshold or iteration cap is met
+- **Multi-model pipelines** — each agent node can use a different LLM model and system prompt
+- **Per-node tracing** — every node emits a child span (`llm.call`, `tool.call`, `graph.router`, `graph.lambda`) under the parent run
+
+### Multi-Agent Orchestration *(new)*
+- **Fan-out** — spawn N parallel agent runs from a single trigger, collect results
+- **Swarm** — dynamic multi-agent collaboration where agents hand off to each other via `transfer_to_agent` skill
+- **DAG scheduler** — define agent pipelines as dependency graphs; steps run in parallel where possible
+- **Pass-output chaining** — DAG steps can forward their response as input to downstream steps
+
+### Human-in-the-Loop (HITL) *(new)*
+- **`interrupt_before`** — pause before a tool call and require approval; shows call arguments in UI
+- **`interrupt_after`** — pause after a tool call and require approval before continuing; shows tool result
+- **Checkpoint store** — full conversation state persisted on interrupt; resumed on approve, discarded on reject
+- **REST API** — `GET /hitl/pending`, `POST /hitl/{id}/approve`, `POST /hitl/{id}/reject`
+- **Admin UI panel** — approve/reject with full context (tool name, input, output) from the chat interface
+
 ### LLM
-- **Multi-provider routing** — Anthropic, OpenAI, Azure OpenAI, Google Gemini, AWS Bedrock
-- **Tag-based routing** — route by agent tag (e.g. `fast` → Gemini, `cheap` → Haiku)
+- **Multi-provider routing** — Anthropic, OpenAI, Azure OpenAI, Google Gemini, AWS Bedrock, Ollama, vLLM, LM Studio
+- **Tag-based routing** — route by agent tag (e.g. `fast` → Gemini, `cheap` → Haiku, `private` → Ollama)
 - **Fallback chains** — automatically failover to the next provider on error
 - **Cost ledger** — per-agent, per-tenant token cost tracking
 
+### Observability & Tracing *(new)*
+- **Distributed trace store** — every agent run recorded as a trace with nested spans (agent loop, LLM calls, tool calls, graph nodes)
+- **Trace UI** — paginated trace browser with agent/status filters and full span-tree drilldown
+- **Prometheus endpoint** — `/metrics/prometheus` for scraping by Grafana / alerting pipelines
+- **Cost metrics** — `/metrics/cost` per-agent/tenant spend; `/metrics/agents` execution stats
+- **OpenTelemetry tracing** — distributed traces exported to any OTLP-compatible collector
+
+### Eval Framework *(new)*
+- **`EvalRunner`** — run agent responses against a JSONL dataset and collect scores
+- **Built-in scorers** — `exact_match`, `contains`, `regex_match`, `word_overlap`, `json_keys`, `LLMJudge`
+- **`AdverseImpactScorer`** — OECD AI Principle 1.3 safety scorer; classifies outputs for BIAS, DISCRIMINATION, PRIVACY, MISINFORMATION, FINANCIAL_HARM, EMOTIONAL_HARM
+- **Dataset management** — load, save, filter JSONL eval datasets
+
 ### Skills & Tools
-- **Built-in skills** — `web-search`, `file-ops`, `email-composer`
+- **Built-in skills** — `web-search`, `file-ops`, `email-composer`, `browser`
 - **Skill marketplace** — community skills catalog with `agentix skill install`
-- **SkillHub** — local skill registry with YAML spec + Python implementation pattern
 - **`@tool` decorator** — register any Python function as an agent tool
+- **`transfer_to_agent`** — built-in skill for swarm agent handoff
 
 ### Security
 - **RBAC engine** — 5-level role hierarchy (end-user → operator → agent-author → tenant-admin → platform-admin)
@@ -90,14 +136,12 @@ Slack / WhatsApp / HTTP / Email / SQS / gRPC
 - **Skill RBAC** — per-skill permission gates enforced at activation time
 
 ### Compliance
-- **GDPR engine** — right to erasure, data export (portability), consent tracking, pseudonymisation
+- **GDPR engine** — right to erasure, data export, consent tracking, pseudonymisation
+- **OECD Due Diligence** *(new)* — 6-step compliance report (Feb 2026 guidance) exportable as ZIP evidence bundle
+- **`AdverseImpactScorer`** *(new)* — continuous OECD Principle 1.3 monitoring via eval pipeline
+- **`RemediationLog`** *(new)* — OECD Step 6 harm tracker from discovery through resolution
 - **SOC2 evidence bundle** — automated ZIP export of access logs, audit trails, and config snapshots
 - **Retention engine** — configurable data retention policies with automatic purge
-
-### Observability
-- **OpenTelemetry tracing** — distributed traces exported to any OTLP-compatible collector
-- **Cost metrics** — per-provider, per-agent, per-tenant spend dashboards
-- **Admin UI** — React/Vite/Tailwind dashboard for agents, triggers, skills, audit, and metrics
 
 ### Infrastructure
 - **HA leader election** — Redis SETNX-based distributed lock; only one replica runs the scheduler
@@ -116,15 +160,22 @@ agentix/
 │   ├── ha/            # Leader election, rate limiter, trigger queue
 │   └── auth.py        # JWT validation
 ├── agent_runtime/     # Agent loader, context builder, agentic loop
+│   └── graph_runner.py  # YAML → CompiledGraph compiler
+├── graph/             # Graph engine (NEW)
+│   ├── graph.py       # StateGraph, CompiledGraph, edge resolution
+│   ├── nodes.py       # AgentNode, ToolNode, RouterNode, LambdaNode
+│   └── state.py       # StateSchema, FieldSchema, reducers
 ├── llm/               # LLM router + provider adapters
 ├── skills/            # Skill engine, marketplace, SkillHub
 ├── storage/           # StateStore (SQLite/PostgreSQL), tenant management
 ├── memory/            # Vector store (sqlite-vec / pgvector / pure-Python)
 ├── security/          # RBAC, audit log, identity, secrets, skill RBAC
-├── compliance/        # GDPR, PII detection, SOC2, retention
-├── orchestration/     # Multi-agent patterns (pipeline, fan-out, event bus)
+├── compliance/        # GDPR, PII, SOC2, retention, OECD, remediation (NEW)
+├── orchestration/     # Fan-out, Swarm (NEW), DAG pipeline
+├── hitl/              # Human-in-the-loop checkpoints and gate (NEW)
 ├── scheduler/         # Cron scheduler engine
-├── observability/     # OpenTelemetry tracing, cost ledger
+├── observability/     # Trace store, cost ledger, OpenTelemetry (NEW)
+├── eval/              # EvalRunner, scorers, dataset management (NEW)
 ├── api/               # FastAPI admin REST API
 ├── cli/               # `agentix` CLI
 └── testing/           # AgentTestHarness, MockLLMProvider, AgentAssertions
@@ -162,21 +213,22 @@ cp .env.example .env
 agentix dev start
 ```
 
-This boots the watchdog on `http://localhost:8080` with the HTTP webhook channel enabled and registers any agents found in `agents/`.
+This boots the watchdog on `http://localhost:8000` with the HTTP webhook channel enabled and registers any agents found in `agents/`.
 
 ### Send your first trigger
 
 ```bash
-curl -X POST http://localhost:8080/trigger \
+curl -X POST http://localhost:8000/trigger \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "research-assistant", "text": "What is the capital of France?"}'
 ```
 
-### Start the Admin API (optional)
+### Start the Admin API + UI (optional)
 
 ```bash
-uvicorn agentix.api.app:create_app --factory --reload --port 8090
-# Swagger UI: http://localhost:8090/docs
+uvicorn agentix.api.app:create_app --factory --reload --port 8000
+# Swagger UI:  http://localhost:8000/docs
+# Admin UI:    http://localhost:8000/ui
 ```
 
 ---
@@ -188,7 +240,7 @@ The main config file is `config/watchdog.yaml`. Environment variables override f
 ```yaml
 # config/watchdog.yaml
 watchdog:
-  port: 8080
+  port: 8000
   log_level: INFO
 
 llm:
@@ -211,10 +263,10 @@ security:
   jwt_secret: ${JWT_SECRET}
 
 storage:
-  db_path: data/agentix.db   # use postgresql://... for Standard tier
+  db_path: data/agentix.db   # use postgresql://... for production
 ```
 
-See [docs/setup-guide.md](docs/setup-guide.md) for the complete configuration reference including WhatsApp, Telegram, Slack, SQS, gRPC, PostgreSQL, Redis, Vault, and Kubernetes setup.
+See [docs/setup-guide.md](docs/setup-guide.md) for the complete configuration reference.
 
 ---
 
@@ -229,7 +281,6 @@ kind: "Agent"
 metadata:
   name: "my-agent"
   version: "1.0.0"
-  team: "platform"
 spec:
   system_prompt: |
     You are a helpful assistant. Answer concisely.
@@ -242,12 +293,6 @@ spec:
 
   skills:
     - web-search
-    - file-ops
-
-  tools:
-    - web_search
-    - web_fetch
-    - file_read
 
   memory:
     short_term: sqlite
@@ -271,12 +316,255 @@ agentix agent register agents/my-agent.yaml
 
 ---
 
+## Graph Engine
+
+For multi-stage pipelines, define your agent as a directed graph inside the same YAML spec. Each node is an explicit step; edges declare how state flows between them.
+
+```yaml
+spec:
+  graph:
+    max_steps: 40
+
+    state_schema:
+      messages:   { reducer: append,  default: [] }
+      tool_calls: { reducer: replace, default: [] }
+      final_answer: { reducer: replace, default: "" }
+      token_count:  { reducer: add,     default: 0 }
+
+    nodes:
+      - id: researcher
+        type: agent
+        system_prompt: "Search and summarise the topic."
+        tools: ["web_search"]
+        output_key: notes
+
+      - id: tool_executor
+        type: tool
+
+      - id: router
+        type: router
+        condition: "lambda state: 'tool_executor' if state.get('tool_calls') else 'synthesizer'"
+
+      - id: synthesizer
+        type: agent
+        messages_key: synth_messages   # reads clean context, not tool history
+        tools: []
+        output_key: final_answer
+
+    edges:
+      - { from: researcher, to: router }
+      - from: router
+        mapping: { tool_executor: tool_executor, synthesizer: synthesizer }
+      - { from: tool_executor, to: researcher }
+      - { from: synthesizer, to: __end__ }
+
+    entry: researcher
+```
+
+### Node types
+
+| Type | What it does |
+|------|-------------|
+| `agent` | Calls the LLM; handles tool-use and end-turn stop reasons |
+| `tool` | Executes `state["tool_calls"]` via ToolExecutor, clears the queue |
+| `router` | Evaluates a condition lambda and returns a routing key; never modifies state |
+| `lambda` | Runs any `lambda state: patch` — for transforms, counters, context prep |
+
+### When to use graph vs regular agent vs DAG
+
+| Need | Regular agent | Graph | DAG |
+|------|:---:|:---:|:---:|
+| Single LLM + optional tools | ✅ | — | — |
+| Multiple LLM calls sharing context | — | ✅ | — |
+| Conditional routing on LLM output | — | ✅ | — |
+| Loop until quality threshold | — | ✅ | — |
+| Separate system prompts per stage | — | ✅ | — |
+| Parallel independent agents | — | — | ✅ |
+| Scheduled / cron pipelines | — | — | ✅ |
+
+See [docs/graph-engine.md](docs/graph-engine.md) for the full reference including all reducers, edge types, and common patterns.
+
+---
+
+## Multi-Agent Orchestration
+
+### Fan-out
+
+Spawn N agent runs in parallel from a single trigger and collect all results:
+
+```python
+from agentix.orchestration.fanout import FanOut, FanOutConfig
+
+config = FanOutConfig(
+    agents=["researcher-a", "researcher-b", "researcher-c"],
+    merge_strategy="concat",
+    total_timeout=120.0,
+)
+runner = FanOut(config=config, db_path="data/agentix.db", on_trigger=dispatcher)
+result = await runner.run("Analyse Q3 performance", caller=caller)
+```
+
+### Swarm
+
+Dynamic multi-agent collaboration — agents hand off to each other via the built-in `transfer_to_agent` skill:
+
+```python
+from agentix.orchestration.swarm import SwarmRunner, SwarmConfig
+
+config = SwarmConfig(
+    coordinator="triage-agent",
+    specialists=["billing-agent", "technical-agent", "escalation-agent"],
+    total_timeout=300.0,
+    max_handoffs=5,
+)
+runner = SwarmRunner(config=config, db_path="data/agentix.db", on_trigger=dispatcher)
+result = await runner.run("My invoice is wrong", caller=caller)
+```
+
+The coordinator decides whether to answer directly or call `transfer_to_agent(name="billing-agent")`. The swarm tracks handoff history and enforces the `max_handoffs` cap.
+
+### DAG (dependency pipeline)
+
+```yaml
+# schedules/etl-pipeline.yaml
+name: etl-pipeline
+trigger:
+  type: cron
+  expression: "0 2 * * *"  # 02:00 daily
+steps:
+  - id: extract
+    agent: extractor-agent
+  - id: transform
+    agent: transformer-agent
+    depends_on: [extract]
+    pass_output: true        # forwards extractor response as input
+  - id: load
+    agent: loader-agent
+    depends_on: [transform]
+```
+
+---
+
+## Human-in-the-Loop (HITL)
+
+Add an `hitl:` block to any agent to pause execution and require human approval before sensitive tool calls proceed.
+
+```yaml
+spec:
+  hitl:
+    interrupt_before:
+      - tool: send_email          # pause before sending — show draft to approver
+      - tool: delete_record
+    interrupt_after:
+      - tool: web_search          # pause after search — approver reviews findings
+        condition: "lambda result: 'confidential' in result.lower()"
+```
+
+Pending approvals appear in the Admin UI and via the REST API:
+
+```bash
+# List pending
+curl http://localhost:8000/api/v1/hitl/pending
+
+# Approve
+curl -X POST http://localhost:8000/api/v1/hitl/{checkpoint_id}/approve
+
+# Reject
+curl -X POST http://localhost:8000/api/v1/hitl/{checkpoint_id}/reject \
+  -d '{"reason": "Output contains PII"}'
+```
+
+On approval, the agent resumes from the exact checkpoint. On rejection, the run is stopped and the rejection reason is recorded in the audit log.
+
+---
+
+## Observability & Tracing
+
+Every agent run is recorded as a **trace** with nested **spans**. In graph mode each node produces its own child span.
+
+### Trace hierarchy
+
+```
+trace (agent run)
+  └── graph.run
+        ├── llm.call     (researcher agent node)
+        ├── tool.call    (tool_executor node)
+        ├── llm.call     (researcher — second pass)
+        ├── graph.router (route_after_researcher)
+        └── llm.call     (synthesizer node)
+```
+
+### REST API
+
+```bash
+# List traces with filters
+GET /api/v1/traces?agent_id=my-agent&status=done&limit=30&offset=0
+
+# Full trace with span tree
+GET /api/v1/traces/{trace_id}
+
+# Cost summary
+GET /api/v1/metrics/cost?tenant_id=acme
+
+# Prometheus scrape
+GET /api/v1/metrics/prometheus
+```
+
+### Admin UI
+
+The Traces page (`/ui`) shows a paginated trace list with Previous/Next controls and agent/status filters. Click any trace to see the full nested span tree with timing, token counts, and error details.
+
+---
+
+## Eval Framework
+
+Run your agents against a dataset and score outputs before shipping to production.
+
+```python
+from agentix.eval.runner import EvalRunner
+from agentix.eval.dataset import EvalDataset
+from agentix.eval.scorers import AdverseImpactScorer
+
+dataset = EvalDataset.from_jsonl("tests/data/eval_cases.jsonl")
+
+runner = EvalRunner(
+    agent_fn=my_agent_call,
+    scorers=["exact_match", "contains"],
+    threshold=0.8,
+)
+results = await runner.run(dataset)
+print(f"Pass rate: {results.pass_rate:.1%}")
+```
+
+### Built-in scorers
+
+| Scorer | Description |
+|--------|-------------|
+| `exact_match` | Exact string equality |
+| `contains` | Output contains expected substring |
+| `regex_match` | Output matches a regex pattern |
+| `word_overlap` | F1-style token overlap |
+| `json_keys` | All expected JSON keys present |
+| `LLMJudge` | GPT/Claude rates quality on a rubric |
+| `AdverseImpactScorer` | OECD Principle 1.3 safety scorer |
+
+### Adverse impact monitoring
+
+```python
+from agentix.eval.scorers import AdverseImpactScorer
+
+scorer = AdverseImpactScorer(llm=llm_router)
+score = await scorer(actual=agent_output)
+# score.value: 1.0=none, 0.75=low, 0.5=medium, 0.0=high risk
+# score.explanation: "[BIAS] severity=low: ..."
+```
+
+---
+
 ## Channels
 
-All channels normalise their payloads to a `TriggerEnvelope` before dispatch. Enable a channel by providing its credentials (in `.env` or `config/watchdog.yaml`).
-
 | Channel | Enable by setting |
-|---|---|
+|---------|-------------------|
 | HTTP Webhook | Always enabled (listens on watchdog port) |
 | Slack | `SLACK_BOT_TOKEN` + `SLACK_SIGNING_SECRET` |
 | WhatsApp | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_ID` |
@@ -286,140 +574,33 @@ All channels normalise their payloads to a `TriggerEnvelope` before dispatch. En
 | AWS SQS | `SQS_QUEUE_URL` (+ AWS credentials) |
 | gRPC | `GRPC_LISTEN_PORT` |
 
-See [docs/setup-guide.md](docs/setup-guide.md#whatsapp-channel-configuration) for a step-by-step WhatsApp setup example.
-
 ---
 
 ## LLM Providers
 
 | Provider | Config key | Notes |
-|---|---|---|
+|----------|------------|-------|
 | Anthropic | `anthropic` | Claude 3.x / Claude 4.x family |
 | OpenAI | `openai` | GPT-4o, GPT-4o-mini, o1 |
 | Azure OpenAI | `azure_openai` | Requires endpoint + deployment name |
 | Google Gemini | `gemini` | Gemini 2.0 Flash recommended |
 | AWS Bedrock | `bedrock` | Uses boto3 credential chain |
-| **Local / self-hosted** | `local`, `ollama`, `lmstudio`, `vllm` | Any OpenAI-compatible server |
-
-Routing is tag-based. Tag an agent with `tags: [fast]` and set `match_tag: fast → provider: gemini` in the routing rules to route automatically.
-
-### Local models (Ollama, LM Studio, vLLM, llama.cpp)
-
-Any server that exposes an OpenAI-compatible `/v1/chat/completions` endpoint works out of the box.
-
-**Ollama** (default port 11434):
-```bash
-ollama pull llama3.2          # or mistral, qwen2.5, phi3, gemma2, etc.
-ollama serve
-```
-
-```yaml
-# config/watchdog.yaml
-llm:
-  default_provider: ollama
-  providers:
-    ollama:
-      base_url: http://localhost:11434/v1
-      model: llama3.2
-      api_key: ollama              # placeholder — not validated
-```
-
-**LM Studio** (default port 1234):
-```yaml
-llm:
-  default_provider: lmstudio
-  providers:
-    lmstudio:
-      base_url: http://localhost:1234/v1
-      model: lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF
-```
-
-**vLLM** (production GPU server):
-```yaml
-llm:
-  default_provider: vllm
-  providers:
-    vllm:
-      base_url: http://gpu-server:8000/v1
-      model: mistralai/Mistral-7B-Instruct-v0.3
-      api_key: ${VLLM_API_KEY}
-```
+| Ollama | `ollama` | Local models (Llama, Mistral, Qwen, Phi) |
+| LM Studio | `lmstudio` | Local GUI server |
+| vLLM | `vllm` | Production GPU server |
 
 **Mixed routing** — local for privacy-sensitive tags, cloud for everything else:
+
 ```yaml
 llm:
-  default_provider: anthropic
-  providers:
-    anthropic:
-      api_key: ${ANTHROPIC_API_KEY}
-      model: claude-sonnet-4-6
-    ollama:
-      base_url: http://localhost:11434/v1
-      model: llama3.2
   routing:
     rules:
-      - match_tag: private          # keep data on-prem
-        provider: ollama
+      - match_tag: private
+        provider: ollama    # keep data on-prem
       - match_tag: fast
         provider: anthropic
     fallback_chain: [anthropic, ollama]
 ```
-
-**Tool use with local models**: Most modern quantised models (Llama 3.1+, Mistral, Qwen 2.5, Phi-3) support tool calling. If your model does not, disable it and Agentix routes tool calls via prompt:
-```yaml
-providers:
-  ollama:
-    base_url: http://localhost:11434/v1
-    model: phi3           # older model — no native tool support
-    supports_tools: false
-```
-
-**Env var overrides** (useful in Docker/K8s):
-```
-LOCAL_LLM_BASE_URL=http://ollama-service:11434/v1
-LOCAL_LLM_MODEL=llama3.2
-LOCAL_LLM_API_KEY=ollama
-```
-
----
-
-## Agent Definition
-
-### Inline system prompt (simple)
-
-```yaml
-spec:
-  system_prompt: |
-    You are a helpful assistant. Answer concisely and accurately.
-```
-
-### File-based system prompt (recommended for complex agents)
-
-Point to a single markdown file — the same pattern used by `CLAUDE.md` and Anthropic skill context files:
-
-```yaml
-spec:
-  system_prompt_file: prompts/system.md   # relative to the agent YAML
-```
-
-### Sectioned prompt (most powerful)
-
-Compose the system prompt from multiple ordered markdown files. Each file is a
-self-contained concern — identity, product context, methodology, constraints — and
-the runtime concatenates them with `---` separators:
-
-```yaml
-spec:
-  prompt_sections:
-    - file: prompts/identity.md           # Who the agent is
-    - file: prompts/product_context.md    # What it's selling / doing
-    - file: prompts/methodology.md        # Step-by-step instructions
-    - file: prompts/constraints.md        # Hard limits and ethics
-    - text: "Always respond in English."  # Inline override
-```
-
-This lets non-engineers edit agent behaviour by updating `.md` files without touching YAML or code.
-Skill instructions from built-in/community skills are appended automatically after the agent's own prompt sections.
 
 ---
 
@@ -427,32 +608,12 @@ Skill instructions from built-in/community skills are appended automatically aft
 
 ### Built-in skills
 
-| Skill | Tools provided | Requires |
-|---|---|---|
-| `web-search` | `web_search`, `web_fetch` | nothing |
-| `file-ops` | `file_read`, `file_write`, `file_list` | nothing |
-| `email-composer` | `send_email`, `draft_email` | SMTP config |
-| `browser` | `browser_navigate`, `browser_get_text`, `browser_get_links`, `browser_click`, `browser_fill`, `browser_scroll`, `browser_screenshot`, `browser_wait`, `browser_evaluate`, `browser_close`, `linkedin_get_profile`, `linkedin_get_feed_posts`, `linkedin_search_people`, `linkedin_send_message` | `playwright` |
-
-### Browser skill setup
-
-```bash
-pip install playwright
-playwright install chromium
-```
-
-Save LinkedIn session cookies (one-time):
-```bash
-# Run with headless=false, log in manually, then save cookies
-BROWSER_HEADLESS=false agentix agent run sales-agent --text "save cookies"
-# or use the CLI helper:
-agentix browser save-cookies --output data/linkedin_cookies.json
-```
-
-Point the agent at them:
-```bash
-export BROWSER_COOKIES_FILE=data/linkedin_cookies.json
-```
+| Skill | Tools provided |
+|-------|----------------|
+| `web-search` | `web_search`, `web_fetch` |
+| `file-ops` | `file_read`, `file_write`, `file_list` |
+| `email-composer` | `send_email`, `draft_email` |
+| `browser` | `browser_navigate`, `browser_get_text`, `browser_click`, `browser_screenshot` + LinkedIn tools |
 
 ### Custom tools
 
@@ -466,14 +627,6 @@ from agentix.agent_runtime.tool_executor import tool
 )
 def get_weather(city: str) -> dict:
     return {"city": city, "temp_c": 22, "condition": "sunny"}
-```
-
-### Marketplace
-
-```bash
-agentix skill list                  # list available skills
-agentix skill install zendesk-support
-agentix skill install github-ops
 ```
 
 ---
@@ -490,21 +643,9 @@ platform-admin  (full access)
                     └── end-user  (invoke triggers only)
 ```
 
-### Service accounts
-
-```bash
-# Create a service account API key for CI/CD
-agentix service-account create \
-  --name "ci-pipeline" \
-  --roles operator \
-  --tenant my-tenant
-```
-
-The key is returned **once** in plaintext and stored only as a bcrypt hash. Use it as a Bearer token: `Authorization: Bearer sk-agentix-<key>`.
-
 ### Audit log
 
-Every agent invocation, skill activation, and admin action is written to a tamper-evident HMAC-chained audit log:
+Every agent invocation, HITL decision, skill activation, and admin action is written to a tamper-evident HMAC-chained audit log:
 
 ```bash
 agentix audit list --limit 50
@@ -539,14 +680,73 @@ clean = redactor.redact("Call me at +1-555-123-4567")
 # → "Call me at [PHONE]"
 ```
 
+### OECD Due Diligence (AI Act / Feb 2026 Guidance)
+
+Agentix generates a full 6-step OECD Due Diligence evidence bundle for enterprise AI compliance audits. The report maps each OECD step to existing agentix evidence collected automatically during agent runs.
+
+| OECD Step | Evidence source in Agentix |
+|-----------|---------------------------|
+| Step 1 — Responsible AI Policy | RBAC policy file + security layer inventory |
+| Step 2 — Identify Adverse Impacts | EvalRunner results via `AdverseImpactScorer` |
+| Step 3 — Prevent & Mitigate | PII redaction, GDPR erasure, HITL checkpoints, RBAC |
+| Step 4 — Track & Communicate | `ai.invocation` audit entries (model, tools, connectors, PII flags) |
+| Step 5 — Audit Evidence | HMAC-chained audit log with integrity verification |
+| Step 6 — Remediation | `RemediationLog` open/resolved items linked to audit entries |
+
+```python
+from agentix.compliance.oecd import OECDDueDiligenceReport
+
+report = OECDDueDiligenceReport(
+    db_path="data/agentix.db",
+    cfg={"version": "1.0.0"},
+    hmac_secret=os.environ["AUDIT_HMAC_SECRET"],
+    period_days=90,
+)
+zip_path = report.export("compliance/oecd-2026-Q2")
+# → compliance/oecd-2026-Q2/oecd-due-diligence-20260520_143022.zip
+```
+
+The ZIP bundle contains:
+- `oecd_due_diligence_report.json` — structured 6-step report
+- `policy/rbac_policy.yaml` — current RBAC policy
+- `evidence/ai_invocations.ndjson` — all model invocations in the period
+- `evidence/pii_events.ndjson` — PII detection/redaction events
+- `evidence/eval_results.ndjson` — adverse impact eval results
+- `evidence/remediation_log.ndjson` — all remediation items
+- `evidence/audit_chain_sample.ndjson` — tamper-evident audit records
+- `MANIFEST.json`
+
+### Remediation tracking
+
+```python
+from agentix.compliance.remediation import RemediationLog
+
+rlog = RemediationLog(db_path="data/agentix.db", audit_log=audit)
+
+# Open a new item when an adverse impact is detected
+item_id = rlog.open_item(
+    harm_type="BIAS",
+    severity="medium",
+    description="Agent suggested lower salary range for female candidates",
+    owner="safety@example.com",
+    audit_seq_ref=1234,   # links to the offending ai.invocation audit entry
+)
+
+# Resolve after fix + re-eval
+rlog.resolve(item_id, resolution_note="Updated system prompt; passed AdverseImpactScorer at 0.95")
+
+# Summary for dashboard
+print(rlog.summary())
+# {"by_status": {"open": 1, "resolved": 3}, "by_severity": {"medium": 2, "low": 2}}
+```
+
 ### SOC2 evidence
 
 ```bash
 python -c "
 from agentix.compliance.soc2 import SOC2Exporter
 e = SOC2Exporter('data/agentix.db', {})
-path = e.export('compliance/')
-print('Bundle:', path)
+print('Bundle:', e.export('compliance/'))
 "
 ```
 
@@ -560,7 +760,7 @@ See [docs/privacy.md](docs/privacy.md) for the full privacy and data handling gu
 
 ```bash
 docker build -t agentix:latest .
-docker run -p 8080:8080 --env-file .env agentix:latest
+docker run -p 8000:8000 --env-file .env agentix:latest
 ```
 
 ### Kubernetes (Helm)
@@ -581,8 +781,6 @@ terraform apply \
   -var="jwt_secret=$JWT_SECRET"
 ```
 
-This provisions EKS, RDS (PostgreSQL), ElastiCache (Redis), and an ALB.
-
 ### GitOps (ArgoCD)
 
 ```bash
@@ -595,7 +793,7 @@ kubectl apply -f deploy/argocd/application.yaml
 ## CLI Reference
 
 ```
-agentix dev start                        Start watchdog in dev mode
+agentix dev start                        Start watchdog + API in dev mode
 
 agentix agent list                       List registered agents
 agentix agent register <path.yaml>       Register an agent from YAML
@@ -652,20 +850,25 @@ Run the test suite:
 pytest tests/ -v
 ```
 
+Run lint and type checks:
+
+```bash
+ruff check agentix/ tests/              # lint
+mypy agentix/ --ignore-missing-imports  # type check
+```
+
 ---
 
 ## Contributing
-
-Contributions are welcome! Please follow these steps:
 
 1. **Fork** the repository and create a feature branch: `git checkout -b feat/my-feature`
 2. **Install dev dependencies**: `pip install -e ".[dev]"`
 3. **Make your changes** — keep commits focused and descriptive
 4. **Run checks** before pushing:
    ```bash
-   ruff check agentix/ tests/    # lint
-   mypy agentix/ --ignore-missing-imports  # type check
-   pytest tests/ -v              # tests
+   ruff check agentix/ tests/
+   mypy agentix/ --ignore-missing-imports
+   pytest tests/ -v
    ```
 5. **Open a pull request** against `main` with a clear description of the change
 
@@ -676,17 +879,6 @@ Contributions are welcome! Please follow these steps:
 - Type checker: `mypy` (strict on new files)
 - All public APIs should have docstrings
 - New features require a test in `tests/`
-
-### Reporting bugs
-
-Please open an issue with:
-- Python version and OS
-- Minimal reproduction steps
-- Full error traceback
-
-### Feature requests
-
-Open an issue tagged `enhancement` with a description of the use case and proposed API.
 
 ---
 

@@ -29,7 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from agentix.api.routers import agents, triggers, skills, audit, tenants, health, metrics, auth, chat
-from agentix.api.routers import connectors, hitl, traces, fanout, prompts
+from agentix.api.routers import connectors, hitl, traces, fanout, prompts, compliance
 
 # Configure the agentix logger namespace directly so it works under uvicorn.
 # logging.basicConfig() is a no-op when uvicorn has already added handlers to
@@ -93,6 +93,7 @@ def create_app(cfg: dict | None = None) -> FastAPI:
     app.include_router(traces.router, prefix=prefix, tags=["Traces"])
     app.include_router(fanout.router, prefix=prefix, tags=["Fan-out"])
     app.include_router(prompts.router, prefix=prefix, tags=["Prompts"])
+    app.include_router(compliance.router, prefix=prefix, tags=["Compliance"])
 
     # Serve compiled React UI if present
     ui_dist = os.path.join(os.path.dirname(__file__), "..", "..", "ui", "dist")

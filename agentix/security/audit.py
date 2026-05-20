@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS audit_chain (
 CREATE INDEX IF NOT EXISTS idx_audit_ts       ON audit_chain(ts);
 CREATE INDEX IF NOT EXISTS idx_audit_agent    ON audit_chain(agent_id);
 CREATE INDEX IF NOT EXISTS idx_audit_tenant   ON audit_chain(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_event    ON audit_chain(event_type);
 """
 
 
@@ -216,3 +217,73 @@ class AuditLog:
             expected_prev = entry["entry_hash"]
 
         return True, f"Chain OK — {len(rows)} entries verified"
+
+    # ------------------------------------------------------------------
+    # OECD value-chain transparency helpers
+    # ------------------------------------------------------------------
+
+    def record_ai_invocation(
+        self,
+        trigger_id: str,
+        agent_id: str,
+        model_provider: str,
+        model_id: str,
+        tools_used: list | None = None,
+        connectors_used: list | None = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        latency_ms: float = 0.0,
+        pii_in_input: bool = False,
+        pii_in_output: bool = False,
+        risk_tier: str = "low",
+        tenant_id: str = "default",
+    ) -> int:
+        """
+        Record a structured AI model invocation for OECD value-chain transparency
+        (OECD Due Diligence Guidance Step 4 — Track and Communicate).
+
+        One call per agent run captures which model provider, model version,
+        tools, and connectors were used, enabling enterprise buyers to audit
+        the AI supply chain for any given trigger.
+        """
+        return self.record(
+            event_type="ai.invocation",
+            trigger_id=trigger_id,
+            agent_id=agent_id,
+            actor=f"{model_provider}/{model_id}",
+            detail={
+                "model_provider": model_provider,
+                "model_id": model_id,
+                "tools_used": tools_used or [],
+                "connectors_used": connectors_used or [],
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "latency_ms": latency_ms,
+                "pii_in_input": pii_in_input,
+                "pii_in_output": pii_in_output,
+                "risk_tier": risk_tier,
+            },
+            tenant_id=tenant_id,
+        )
+
+    def get_ai_invocations(
+        self,
+        tenant_id: str | None = None,
+        agent_id: str | None = None,
+        since: float | None = None,
+        limit: int = 500,
+    ) -> list[dict]:
+        """Return all 'ai.invocation' audit entries with detail parsed to dict."""
+        rows = self.query(
+            tenant_id=tenant_id,
+            agent_id=agent_id,
+            event_type="ai.invocation",
+            since=since,
+            limit=limit,
+        )
+        for row in rows:
+            try:
+                row["detail"] = json.loads(row["detail"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return rows
