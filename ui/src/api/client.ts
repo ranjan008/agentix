@@ -102,4 +102,54 @@ export const api = {
   authLogin: (email: string, password: string) =>
     request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   authMe: () => request<any>('/auth/me'),
+
+  // Compliance — remediation
+  listRemediation: (params?: { tenant_id?: string; severity?: string; include_resolved?: boolean }) => {
+    const q = new URLSearchParams(params as any).toString()
+    return request<any>(`/compliance/remediation${q ? '?' + q : ''}`)
+  },
+  openRemediation: (body: any) =>
+    request<any>('/compliance/remediation', { method: 'POST', body: JSON.stringify(body) }),
+  updateRemediation: (id: number, body: any) =>
+    request<any>(`/compliance/remediation/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // Compliance — GDPR
+  gdprExport: (identityId: string, tenantId = 'default') =>
+    request<any>(`/compliance/gdpr/export/${encodeURIComponent(identityId)}?tenant_id=${encodeURIComponent(tenantId)}`),
+  gdprErasure: (identityId: string, tenantId = 'default') =>
+    request<any>(`/compliance/gdpr/${encodeURIComponent(identityId)}?tenant_id=${encodeURIComponent(tenantId)}`, { method: 'DELETE' }),
+
+  // Compliance — file downloads (blob)
+  downloadOecdReport: async (periodDays = 90): Promise<void> => {
+    const token = localStorage.getItem('agentix_token')
+    const res = await fetch(`${BASE}/compliance/oecd/export?period_days=${periodDays}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const name = cd.match(/filename=([^\s;]+)/)?.[1] ?? 'oecd-report.zip'
+    _triggerDownload(blob, name)
+  },
+
+  downloadSoc2Report: async (): Promise<void> => {
+    const token = localStorage.getItem('agentix_token')
+    const res = await fetch(`${BASE}/compliance/soc2/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
+    const blob = await res.blob()
+    const cd = res.headers.get('Content-Disposition') ?? ''
+    const name = cd.match(/filename=([^\s;]+)/)?.[1] ?? 'soc2-evidence.zip'
+    _triggerDownload(blob, name)
+  },
+}
+
+function _triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }

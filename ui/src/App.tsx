@@ -1,7 +1,7 @@
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Bot, Zap, ShieldCheck, Users, BarChart2,
-  Package, MessageSquare, LogOut, ChevronRight, Zap as ZapIcon, Plug, Activity,
+  Package, MessageSquare, LogOut, ChevronRight, Zap as ZapIcon, Plug, Activity, FileCheck,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -17,6 +17,7 @@ import Connectors from './pages/Connectors'
 import Chat from './pages/Chat'
 import Login from './pages/Login'
 import Traces from './pages/Traces'
+import Compliance from './pages/Compliance'
 
 const NAV_GROUPS = [
   {
@@ -39,9 +40,10 @@ const NAV_GROUPS = [
   {
     label: 'Enterprise',
     items: [
-      { to: '/audit',    icon: ShieldCheck, label: 'Audit Log', minLevel: 4 },
-      { to: '/tenants',  icon: Users,       label: 'Tenants',   minLevel: 4 },
-      { to: '/metrics',  icon: BarChart2,   label: 'Metrics',   minLevel: 5 },
+      { to: '/audit',      icon: ShieldCheck, label: 'Audit Log',  minLevel: 4 },
+      { to: '/tenants',    icon: Users,       label: 'Tenants',    minLevel: 4 },
+      { to: '/compliance', icon: FileCheck,   label: 'Compliance', minLevel: 4 },
+      { to: '/metrics',    icon: BarChart2,   label: 'Metrics',    minLevel: 5 },
     ],
   },
 ]
@@ -201,6 +203,7 @@ function Shell() {
             <>
               <Route path="/audit" element={<Audit />} />
               <Route path="/tenants" element={<Tenants />} />
+              <Route path="/compliance" element={<Compliance />} />
             </>
           )}
           {level >= 5 && <Route path="/metrics" element={<Metrics />} />}

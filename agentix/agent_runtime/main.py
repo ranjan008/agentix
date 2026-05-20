@@ -49,6 +49,9 @@ MAX_TOOL_ITERATIONS = 20  # default; overridden by spec.max_tool_calls
 
 
 def run(envelope: dict) -> None:
+    import time as _time_mod
+    _run_start = _time_mod.monotonic()
+
     agent_id = envelope["agent_id"]
     db_path = os.environ.get("AGENTIX_DB_PATH", "data/agentix.db")
     agents_dir = os.environ.get("AGENTIX_AGENTS_DIR", "agents")
@@ -446,6 +449,39 @@ def run(envelope: dict) -> None:
     except Exception as _ce:
         logger.warning("Cost ledger record failed: %s", _ce)
     trace_store.finish_trace(trace_id, status="done", total_tokens=total_tokens, total_cost_usd=total_cost_usd)
+
+    # --- OECD value-chain transparency: record structured AI invocation ---
+    # Populates the 'ai.invocation' audit entries consumed by OECDDueDiligenceReport
+    # Step 4 (Track & Communicate). Runs best-effort — never blocks output.
+    try:
+        from agentix.security.audit import AuditLog as _AuditLog
+        from agentix.compliance.pii import PIIDetector as _PIIDetector
+        _audit = _AuditLog(
+            db_path=db_path,
+            hmac_secret=os.environ.get("AUDIT_HMAC_SECRET", ""),
+        )
+        _pii = _PIIDetector(use_presidio=False)
+        _input_text = envelope.get("payload", {}).get("text", "")
+        _latency_ms = round((_time_mod.monotonic() - _run_start) * 1000, 1)
+        _connector_refs = connector_refs if "connector_refs" in dir() else []
+        _audit.record_ai_invocation(
+            trigger_id=envelope["id"],
+            agent_id=agent_id,
+            model_provider=agent_provider or "unknown",
+            model_id=agent_model or "default",
+            tools_used=list({tc for tc in (agent_spec["spec"].get("tools") or [])}),
+            connectors_used=[c if isinstance(c, str) else c.get("type", "?")
+                             for c in _connector_refs],
+            input_tokens=total_input_tokens,
+            output_tokens=total_output_tokens,
+            latency_ms=_latency_ms,
+            pii_in_input=_pii.contains_pii(_input_text),
+            pii_in_output=_pii.contains_pii(final_text or ""),
+            risk_tier=agent_spec["spec"].get("rbac", {}).get("role", "end-user"),
+            tenant_id=envelope.get("caller", {}).get("tenant_id", "default"),
+        )
+    except Exception as _oecd_err:
+        logger.debug("record_ai_invocation skipped: %s", _oecd_err)
 
     # --- Emit output ---
     route_output(envelope, final_text)
