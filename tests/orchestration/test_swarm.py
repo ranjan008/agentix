@@ -15,12 +15,10 @@ Covers:
 """
 from __future__ import annotations
 
-import asyncio
-import json
 import sqlite3
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -174,7 +172,7 @@ async def test_runner_dispatches_coordinator(tmp_path):
 
     config = SwarmConfig(coordinator="coord", specialists=["spec-1"], total_timeout=10.0)
     runner = SwarmRunner(config=config, db_path=db_path, on_trigger=on_trigger)
-    result = await runner.run("analyse the data", caller=_CALLER)
+    await runner.run("analyse the data", caller=_CALLER)
 
     assert len(dispatched) == 1
     assert dispatched[0]["agent_id"] == "coord"

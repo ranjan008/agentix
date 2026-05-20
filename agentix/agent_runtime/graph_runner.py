@@ -68,10 +68,11 @@ YAML graph schema:
 """
 from __future__ import annotations
 
+import builtins as _builtins_mod
 import logging
 from typing import Any
 
-from agentix.graph.graph import StateGraph, END
+from agentix.graph.graph import StateGraph
 from agentix.graph.nodes import AgentNode, BaseNode, LambdaNode, RouterNode, ToolNode
 from agentix.graph.state import FieldSchema, StateSchema
 
@@ -142,7 +143,6 @@ class _TracingNode(BaseNode):
             raise
 
 # Eval namespace — safe subset of builtins (no exec/open/import/__import__)
-import builtins as _builtins_mod
 _SAFE_BUILTINS = {
     name: getattr(_builtins_mod, name)
     for name in (

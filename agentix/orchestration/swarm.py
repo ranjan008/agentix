@@ -20,14 +20,12 @@ This module provides:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 import sqlite3
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Awaitable
+from typing import Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 

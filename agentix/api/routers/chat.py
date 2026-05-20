@@ -13,11 +13,8 @@ import subprocess
 import sys
 import threading
 import uuid
-from pathlib import Path
-
-# Project root = two levels up from this file (agentix/api/routers/chat.py)
-_PROJECT_ROOT = str(Path(__file__).resolve().parents[3])
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,6 +22,9 @@ from pydantic import BaseModel
 
 from agentix.api.deps import get_store, get_current_identity
 from agentix.storage.state_store import StateStore
+
+# Project root = three levels up from this file (agentix/api/routers/chat.py)
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[3])
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

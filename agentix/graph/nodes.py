@@ -11,11 +11,10 @@ All nodes are async. sync functions are wrapped automatically.
 """
 from __future__ import annotations
 
-import asyncio
 import inspect
 import json
 import logging
-from typing import Any, Callable, Awaitable
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 

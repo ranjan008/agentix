@@ -1,7 +1,6 @@
 """Tests for HITLGate."""
 from __future__ import annotations
 
-import pytest
 
 from agentix.hitl.gate import HITLDecision, HITLGate
 from tests.factories import make_agent_spec

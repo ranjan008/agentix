@@ -202,7 +202,7 @@ async def test_agent_node_no_tools_key_gets_all_tools():
     }
     llm = MockLLM([_MockResponse("all tools response", "end_turn")])
     compiled = build_graph_from_spec(spec, llm=llm, executor=None, tool_schemas=all_schemas)
-    state = await compiled.invoke({"messages": [{"role": "user", "content": "hi"}]})
+    await compiled.invoke({"messages": [{"role": "user", "content": "hi"}]})
     # All tool schemas passed to LLM (both schemas visible)
     call = llm.calls[0]
     assert call["tools"] is not None
