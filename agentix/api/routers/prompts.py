@@ -120,8 +120,11 @@ async def create_prompt(
         raise
     if body.publish:
         store.publish(p.id)
-        p = store.get_by_id(p.id)
-    return p.to_dict()  # type: ignore[union-attr]
+        published = store.get_by_id(p.id)
+        if published is None:
+            raise HTTPException(status_code=500, detail="Failed to fetch published prompt")
+        p = published
+    return p.to_dict()
 
 
 @router.post("/prompts/{prompt_id}/publish", status_code=200)

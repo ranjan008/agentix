@@ -417,7 +417,7 @@ class Scheduler:
             )
 
             for step, result in zip(to_run, results):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     if step.get("continue_on_failure"):
                         logger.warning("DAG step '%s' failed (continue_on_failure=True): %s", step["id"], result)
                         completed.add(step["id"])

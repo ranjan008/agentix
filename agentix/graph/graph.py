@@ -158,10 +158,11 @@ class CompiledGraph:
         else:
             state = dict(initial_state or {})
 
-        current = self._entry
+        current: str | None = self._entry
         steps = 0
 
         while current not in (None, END) and steps < max_steps:
+            assert current is not None  # while condition guarantees this; assert narrows for mypy
             steps += 1
             node = self._nodes.get(current)
             if not node:
