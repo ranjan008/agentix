@@ -114,6 +114,10 @@ class Watchdog:
                 detail={"reason": "unknown_agent"},
                 tenant_id=envelope["caller"].get("tenant_id", "default"),
             )
+            self.store.update_trigger_status(
+                trigger_id, "failed",
+                error=f"Agent '{agent_id}' is not registered",
+            )
             return
 
         # RBAC gateway check

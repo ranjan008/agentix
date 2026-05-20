@@ -238,6 +238,19 @@ class StateStore:
                 (response, time.time(), trigger_id),
             )
 
+    def fail_stale_triggers(self, older_than_ts: float) -> int:
+        """Mark pending/running triggers created before older_than_ts as failed."""
+        now = time.time()
+        with self._cursor() as cur:
+            cur.execute(
+                """UPDATE triggers
+                   SET status='failed', finished_at=?, error='Stale: no agent response received'
+                   WHERE status IN ('pending', 'running', 'queued')
+                   AND created_at < ?""",
+                (now, older_than_ts),
+            )
+            return cur.rowcount
+
     def get_trigger(self, trigger_id: str) -> dict | None:
         with self._cursor() as cur:
             row = cur.execute(

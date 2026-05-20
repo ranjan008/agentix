@@ -1,0 +1,68 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+metadata:
+  name: "demo-coordinator"
+  version: "1.0.0"
+  description: >
+    Swarm coordinator agent. Receives a complex research question,
+    delegates research to demo-researcher, delegates summarization to
+    demo-summarizer, then synthesises both responses into a final answer.
+    Demonstrates the agent swarm pattern with transfer_to_agent.
+  tags:
+    - demo
+    - coordinator
+    - swarm
+
+spec:
+  system_prompt: |
+    You are the coordinator of a research swarm. You receive complex
+    questions and orchestrate specialist agents to answer them.
+
+    Your workflow for ANY question:
+
+    STEP 1 — Research
+    Call transfer_to_agent with:
+      agent_id: "demo-researcher"
+      task: "Research the following topic and return key findings: <the question>"
+
+    STEP 2 — Summarize
+    Take the research findings you just received and call transfer_to_agent with:
+      agent_id: "demo-summarizer"
+      task: "Summarize these research findings into an executive summary:\n<research output>"
+
+    STEP 3 — Synthesise
+    Combine the research and summary into a final, polished response structured as:
+
+    ## Answer: <question>
+
+    <executive summary from summarizer>
+
+    ### Supporting Research
+    <key findings from researcher>
+
+    ---
+    *Coordinated by demo-coordinator using demo-researcher + demo-summarizer*
+
+    Always complete all 3 steps before responding to the user.
+
+  model:
+    provider: "anthropic"
+    model_id: "claude-haiku-4-5-20251001"
+    temperature: 0.2
+    max_tokens: 2048
+
+  skills:
+    - "transfer_to_agent"
+
+  context:
+    token_budget: 16000
+    compaction_strategy: truncate
+    max_tool_result_chars: 3000
+
+  execution:
+    timeout_sec: 240
+    max_tool_calls: 10
+    max_iterations: 12
+
+  triggers:
+    - channel: "http_webhook"

@@ -10,8 +10,16 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Callable
+
+# Resolve project root from this file's location (agentix/watchdog/agent_spawner.py)
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
+
+_thread_pool = ThreadPoolExecutor(max_workers=20, thread_name_prefix="agent-spawn")
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +63,6 @@ class AgentSpawner:
         async with self._semaphore:
             logger.info("Spawning agent process: agent=%s trigger=%s", agent_id, trigger_id)
 
-            # Pass the envelope to the agent runtime via env variable.
-            # Also inject any vars from a .env file that may not be in os.environ
-            # (e.g. when the watchdog itself was started without them pre-loaded).
             env = dict(os.environ)
             try:
                 from dotenv import dotenv_values
@@ -69,52 +74,22 @@ class AgentSpawner:
             env["AGENTIX_TRIGGER"] = json.dumps(envelope)
             env["AGENTIX_DB_PATH"] = self.db_path
 
-            # Locate the agent_runtime entry point
             runtime_module = "agentix.agent_runtime.main"
 
             try:
-                proc = await asyncio.create_subprocess_exec(
-                    sys.executable, "-m", runtime_module,
-                    env=env,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    _thread_pool,
+                    self._run_subprocess,
+                    agent_id, trigger_id, runtime_module, env,
                 )
-
-                try:
-                    stdout, stderr = await asyncio.wait_for(
-                        proc.communicate(),
-                        timeout=self.spawn_timeout_sec,
-                    )
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    try:
-                        _tout, _terr = await proc.communicate()
-                        if _terr:
-                            logger.error(
-                                "Agent timed out (stderr): agent=%s trigger=%s\n%s",
-                                agent_id, trigger_id, _terr.decode(errors="replace")[-3000:],
-                            )
-                        else:
-                            logger.error("Agent timed out: agent=%s trigger=%s", agent_id, trigger_id)
-                    except Exception:
-                        logger.error("Agent timed out: agent=%s trigger=%s", agent_id, trigger_id)
-                    if self.on_complete:
-                        self.on_complete(trigger_id, False, "timeout")
-                    return
-
-                if proc.returncode == 0:
-                    err = stderr.decode(errors="replace").strip()
+                success, err = result
+                if success:
                     logger.info("Agent completed: agent=%s trigger=%s", agent_id, trigger_id)
-                    if err:
-                        logger.info("Agent stderr: agent=%s\n%s", agent_id, err[-3000:])
                     if self.on_complete:
                         self.on_complete(trigger_id, True, None)
                 else:
-                    err = stderr.decode(errors="replace").strip()
-                    logger.error(
-                        "Agent failed (rc=%d): agent=%s trigger=%s\n%s",
-                        proc.returncode, agent_id, trigger_id, err,
-                    )
+                    logger.error("Agent failed: agent=%s trigger=%s\n%s", agent_id, trigger_id, err)
                     if self.on_complete:
                         self.on_complete(trigger_id, False, err[-500:] if err else "non-zero exit")
 
@@ -122,6 +97,37 @@ class AgentSpawner:
                 logger.exception("Spawn error: agent=%s trigger=%s: %s", agent_id, trigger_id, exc)
                 if self.on_complete:
                     self.on_complete(trigger_id, False, str(exc))
+
+    def _run_subprocess(
+        self,
+        agent_id: str,
+        trigger_id: str,
+        runtime_module: str,
+        env: dict,
+    ) -> tuple[bool, str]:
+        """Blocking subprocess call — runs in thread pool to avoid Windows asyncio limitation."""
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", runtime_module],
+                env=env,
+                capture_output=True,
+                timeout=self.spawn_timeout_sec,
+                cwd=_PROJECT_ROOT,
+            )
+            stderr = result.stderr.decode(errors="replace").strip()
+            if result.returncode == 0:
+                if stderr:
+                    logger.info("Agent stderr: agent=%s\n%s", agent_id, stderr[-3000:])
+                return True, ""
+            else:
+                logger.error(
+                    "Agent failed (rc=%d): agent=%s trigger=%s\n%s",
+                    result.returncode, agent_id, trigger_id, stderr,
+                )
+                return False, stderr
+        except subprocess.TimeoutExpired:
+            logger.error("Agent timed out: agent=%s trigger=%s", agent_id, trigger_id)
+            return False, "timeout"
 
     @property
     def active_count(self) -> int:
