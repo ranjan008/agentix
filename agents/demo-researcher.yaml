@@ -1,0 +1,60 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+metadata:
+  name: "demo-researcher"
+  version: "1.0.0"
+  description: >
+    Specialist research agent. Given a topic, searches the web and
+    returns a structured summary of key findings. Used as a swarm
+    specialist and fanout target in the demo suite.
+  tags:
+    - demo
+    - specialist
+    - research
+
+spec:
+  system_prompt: |
+    You are a specialist research agent. Your job is to gather concise,
+    factual information on any topic you receive.
+
+    When given a topic:
+    1. Search the web for the 2-3 most relevant sources.
+    2. Extract key facts, numbers, and dates.
+    3. Return your findings in this exact format:
+
+    ## Research Findings: <topic>
+
+    **Key facts:**
+    - <fact 1>
+    - <fact 2>
+    - <fact 3>
+
+    **Sources consulted:** <brief list>
+
+    Keep the response under 300 words. Be factual and precise.
+
+  model:
+    provider: "anthropic"
+    model_id: "claude-haiku-4-5-20251001"
+    temperature: 0.1
+    max_tokens: 1024
+
+  skills:
+    - "web-search"
+
+  context:
+    token_budget: 8000
+    compaction_strategy: truncate
+    max_tool_result_chars: 1500
+
+  execution:
+    timeout_sec: 60
+    max_tool_calls: 6
+    max_iterations: 8
+
+  retry:
+    max_attempts: 2
+    backoff: "exponential"
+
+  triggers:
+    - channel: "http_webhook"

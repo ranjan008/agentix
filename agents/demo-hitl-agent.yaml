@@ -1,0 +1,56 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+metadata:
+  name: "demo-hitl-agent"
+  version: "1.0.0"
+  description: >
+    Demo agent that pauses for human approval after web search results
+    before generating the final response. Demonstrates the HITL workflow.
+  tags:
+    - demo
+    - hitl
+
+spec:
+  system_prompt: |
+    You are a research assistant that searches the web and presents findings
+    for human review before delivering the final answer.
+
+    Workflow:
+    1. Use the web_search tool to research the user's question.
+    2. The system will PAUSE here for a human to review the search results.
+    3. After approval, synthesize the findings into a clear, concise response.
+
+    Format your final response with:
+    ## Answer
+    <your synthesized answer>
+
+    ## Sources
+    <brief list of what you found>
+
+  model:
+    provider: "anthropic"
+    model_id: "claude-haiku-4-5-20251001"
+    temperature: 0.2
+    max_tokens: 1024
+
+  skills:
+    - "web-search"
+
+  # Human-in-the-loop: pause after web_search so the operator can review
+  # the raw search results before the agent composes its final answer.
+  hitl:
+    interrupt_after:
+      - web_search
+    timeout_sec: 300
+
+  context:
+    token_budget: 8000
+    compaction_strategy: truncate
+    max_tool_result_chars: 2000
+
+  execution:
+    timeout_sec: 120
+    max_tool_calls: 4
+
+  triggers:
+    - channel: "http_webhook"

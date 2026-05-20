@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, HTTPException
@@ -20,10 +21,15 @@ from agentix.watchdog.auth import validate_jwt
 
 _bearer = HTTPBearer(auto_error=False)
 
+# Project root resolved from this file (agentix/api/deps.py → 2 levels up)
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 @lru_cache(maxsize=1)
 def _get_store() -> StateStore:
     db_path = os.environ.get("AGENTIX_DB_PATH", "data/agentix.db")
+    if not os.path.isabs(db_path):
+        db_path = str(_PROJECT_ROOT / db_path)
     return StateStore(db_path)
 
 

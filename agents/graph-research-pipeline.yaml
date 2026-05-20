@@ -1,0 +1,248 @@
+apiVersion: "agentix/v1"
+kind: "Agent"
+metadata:
+  name: "graph-research-pipeline"
+  version: "1.0.0"
+  description: >
+    Demonstrates the full Agentix graph engine: all four node types
+    (agent, tool, router, lambda), both edge kinds (unconditional and
+    conditional), all four state reducers (replace, append, merge, add),
+    and a loop that cycles until the LLM is satisfied with its research.
+  tags:
+    - demo
+    - graph
+    - research
+
+spec:
+  # Top-level LLM config shared by agent nodes that don't override it
+  model:
+    provider: "anthropic"
+    model_id: "claude-haiku-4-5-20251001"
+    temperature: 0.4
+    max_tokens: 2048
+
+  skills:
+    - "web-search"
+
+  context:
+    token_budget: 32000
+    max_tool_result_chars: 3000
+
+  triggers:
+    - channel: "http_webhook"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # GRAPH DEFINITION
+  # ─────────────────────────────────────────────────────────────────────────
+  graph:
+
+    # Maximum graph steps before a hard stop (prevents infinite loops)
+    max_steps: 40
+
+    # ── State schema ────────────────────────────────────────────────────────
+    # Every field declares its reducer so concurrent patches merge correctly.
+    #
+    # Reducers:
+    #   replace  – new value overwrites old (default)
+    #   append   – new value is appended to the list
+    #   merge    – shallow dict merge
+    #   add      – numeric addition
+    # ────────────────────────────────────────────────────────────────────────
+    state_schema:
+      messages:
+        reducer: append        # conversation history grows turn-by-turn
+        default: []
+      tool_calls:
+        reducer: replace       # overwritten each LLM turn
+        default: []
+      research_notes:
+        reducer: append        # each research pass adds to the list
+        default: []
+      metadata:
+        reducer: merge         # tags/stats dict is shallow-merged
+        default: {}
+      token_count:
+        reducer: add           # tokens accumulate across all LLM calls
+        default: 0
+      loop_count:
+        reducer: add           # counts researcher iterations
+        default: 0
+      final_answer:
+        reducer: replace
+        default: ""
+      stop_reason:
+        reducer: replace
+        default: ""
+      synth_messages:
+        reducer: replace       # clean message list built just before synthesizer
+        default: []
+
+    # ── Nodes ───────────────────────────────────────────────────────────────
+    nodes:
+
+      # 1. AGENT NODE — researcher
+      #    Calls the LLM with the conversation so far.
+      #    If it needs tools, emits tool_calls; otherwise produces research_notes.
+      - id: researcher
+        type: agent
+        system_prompt: |
+          You are a meticulous research analyst.
+          Given the user's question, search for relevant information using
+          the web_search tool. Call it multiple times for different angles.
+          When you have gathered enough information, write a structured
+          research note in your final response with key findings, sources,
+          and confidence level (0.0–1.0).
+          Format your final response as:
+            FINDINGS: <bullet points>
+            CONFIDENCE: <0.0-1.0>
+        model: "claude-haiku-4-5-20251001"
+        temperature: 0.3
+        max_tokens: 2048
+        output_key: research_notes        # LLM text → state["research_notes"]
+        tools: ["web_search"]             # this node only sees search tools
+
+      # 2. TOOL NODE — executes whatever tool_calls the researcher emitted
+      - id: tool_executor
+        type: tool
+
+      # 3. ROUTER NODE — decides whether to run tools or move on
+      #    Purely inspects state; does NOT modify it.
+      #    Returns a string key that the conditional edge maps to a node name.
+      - id: route_after_researcher
+        type: router
+        condition: "lambda state: 'tool_executor' if state.get('tool_calls') else 'quality_gate'"
+
+      # 4. ROUTER NODE — quality gate: loop back or proceed to synthesis
+      #    If confidence is low or we have fewer than 2 notes, loop back.
+      #    Capped at 3 iterations via loop_count to prevent runaway cycles.
+      - id: quality_gate
+        type: router
+        condition: |
+          lambda state: (
+            'researcher'
+            if state.get('loop_count', 0) < 3
+               and len(state.get('research_notes', [])) < 2
+            else 'synthesizer'
+          )
+
+      # 5. LAMBDA NODE — prepare clean context for synthesizer
+      #    Builds a single fresh user message from research_notes so the
+      #    synthesizer never sees tool_use/tool_result blocks.
+      - id: prepare_synthesis
+        type: lambda
+        fn: |
+          lambda state: {
+            'synth_messages': [{
+              'role': 'user',
+              'content': (
+                'Original question: ' +
+                (state.get('messages', [{}])[0].get('content', '') if state.get('messages') else '') +
+                '\n\nResearch notes collected across ' +
+                str(state.get('loop_count', 0) + 1) + ' pass(es):\n\n' +
+                '\n\n---\n'.join(str(n) for n in state.get('research_notes', []))
+              )
+            }]
+          }
+
+      # 6. AGENT NODE — synthesizer
+      #    Reads synth_messages (clean context, no tool_use blocks).
+      #    No tools — pure reasoning/writing pass.
+      - id: synthesizer
+        type: agent
+        messages_key: synth_messages   # reads clean context, not full history
+        system_prompt: |
+          You are a senior analyst. The user message contains research notes
+          gathered by a research agent. Synthesize them into a complete,
+          self-contained answer.
+
+          Use this exact markdown structure:
+          ## Summary
+          <2-3 sentence executive summary>
+
+          ## Key Findings
+          - <finding 1>
+          - <finding 2>
+          ...
+
+          ## Confidence Assessment
+          <one sentence on source reliability>
+
+          Hard rules — never break them:
+          - Do NOT ask follow-up questions.
+          - Do NOT end with "Would you like...", "Let me know...", or similar.
+          - Do NOT offer to search for more information.
+          - Stop after the Confidence Assessment section. Write nothing after it.
+        model: "claude-haiku-4-5-20251001"
+        temperature: 0.3
+        max_tokens: 1500
+        output_key: final_answer
+        tools: []                 # no tools — pure synthesis pass
+
+      # 6. LAMBDA NODE — loop counter increment
+      #    Runs between quality_gate → researcher to track iterations.
+      #    Demonstrates the "add" reducer: loop_count accumulates.
+      - id: increment_loop
+        type: lambda
+        fn: "lambda state: {'loop_count': 1, 'metadata': {'last_loop': state.get('loop_count', 0) + 1}}"
+
+      # 7. LAMBDA NODE — final formatter
+      #    Post-processes the synthesizer's output before it reaches the user.
+      #    Demonstrates the "replace" reducer and string manipulation.
+      - id: formatter
+        type: lambda
+        fn: |
+          lambda state: {
+            'final_answer': (
+              state.get('final_answer', '').rstrip() +
+              '\n\n---\n> *Graph pipeline · ' +
+              str(state.get('loop_count', 0) + 1) + ' research pass(es) · ' +
+              str(state.get('token_count', 0)) + ' tokens*'
+            ),
+            'metadata': {
+              'total_notes': len(state.get('research_notes', [])),
+              'pipeline': 'graph-research-pipeline'
+            }
+          }
+
+    # ── Edges ───────────────────────────────────────────────────────────────
+    edges:
+
+      # Entry → researcher (unconditional)
+      - from: researcher
+        to: route_after_researcher
+
+      # route_after_researcher → tool_executor OR quality_gate (conditional)
+      # Condition is taken from the router node defined above.
+      - from: route_after_researcher
+        mapping:
+          tool_executor: tool_executor
+          quality_gate: quality_gate
+
+      # tool_executor loops back to researcher (unconditional)
+      - from: tool_executor
+        to: researcher
+
+      # quality_gate → prepare_synthesis OR increment_loop (conditional)
+      - from: quality_gate
+        mapping:
+          synthesizer: prepare_synthesis  # go through context prep first
+          researcher: increment_loop      # go through counter node first
+
+      # increment_loop → researcher (unconditional loop-back)
+      - from: increment_loop
+        to: researcher
+
+      # prepare_synthesis → synthesizer (unconditional)
+      - from: prepare_synthesis
+        to: synthesizer
+
+      # synthesizer → formatter (unconditional)
+      - from: synthesizer
+        to: formatter
+
+      # formatter → done
+      - from: formatter
+        to: __end__
+
+    # Entry point
+    entry: researcher

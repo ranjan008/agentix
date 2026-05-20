@@ -51,6 +51,9 @@ _BUILTIN_SKILLS: dict[str, str] = {
     "send-teams": "agentix.skills.builtin.send_teams",
     "send_whatsapp": "agentix.skills.builtin.send_whatsapp",
     "send-whatsapp": "agentix.skills.builtin.send_whatsapp",
+    # Agent swarm — coordinator delegates subtasks to specialist agents
+    "transfer_to_agent": "agentix.skills.builtin.transfer",
+    "transfer-to-agent": "agentix.skills.builtin.transfer",
 }
 
 

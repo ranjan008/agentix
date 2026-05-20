@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Awaitable
 
+from agentix.scheduler.resolver import evaluate_condition
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -386,25 +388,47 @@ class Scheduler:
         logger.info("DAG pipeline starting: %s run=%s (%d steps)", schedule["name"], run_id, len(steps))
         completed: set[str] = set()
         failed: set[str] = set()
+        # run_context carries upstream outputs keyed by step id for chaining
+        run_context: dict[str, str] = {}
 
         while True:
             ready = DAGResolver.ready_steps(steps, completed, failed)
             if not ready:
                 break
 
+            # Evaluate conditions and partition ready steps into run vs skip
+            to_run = []
+            for step in ready:
+                cond = step.get("condition")
+                if evaluate_condition(cond, step["id"], run_context):
+                    to_run.append(step)
+                else:
+                    logger.info("DAG step '%s' skipped (condition=False)", step["id"])
+                    completed.add(step["id"])  # treat skipped as completed so deps resolve
+
+            if not to_run:
+                continue  # all ready steps were skipped; re-check for newly unblocked steps
+
             # Fire all ready steps in parallel and WAIT for each agent to finish
-            # before advancing to the next wave (see _fire_dag_step).
+            # before advancing to the next wave (see _fire_dag_step_with_retry).
             results = await asyncio.gather(
-                *[self._fire_dag_step(schedule, step, run_id) for step in ready],
+                *[self._fire_dag_step_with_retry(schedule, step, run_id, run_context) for step in to_run],
                 return_exceptions=True,
             )
 
-            for step, result in zip(ready, results):
+            for step, result in zip(to_run, results):
                 if isinstance(result, Exception):
-                    logger.error("DAG step failed: %s — %s", step["id"], result)
-                    failed.add(step["id"])
+                    if step.get("continue_on_failure"):
+                        logger.warning("DAG step '%s' failed (continue_on_failure=True): %s", step["id"], result)
+                        completed.add(step["id"])
+                    else:
+                        logger.error("DAG step failed: %s — %s", step["id"], result)
+                        failed.add(step["id"])
                 else:
                     completed.add(step["id"])
+                    # result is the trigger_id; fetch and store agent response for chaining
+                    if step.get("pass_output"):
+                        self._collect_step_output(step["id"], result, run_context)
 
             # Update step states in DB
             states = {s: "completed" for s in completed}
@@ -429,7 +453,46 @@ class Scheduler:
 
         logger.info("DAG pipeline %s: run=%s status=%s", schedule["name"], run_id, final_status)
 
-    async def _fire_dag_step(self, schedule: dict, step: dict, run_id: str) -> None:
+    async def _fire_dag_step_with_retry(
+        self, schedule: dict, step: dict, run_id: str, run_context: dict[str, str]
+    ) -> str:
+        """
+        Wrapper around _fire_dag_step that applies the step's retry policy.
+
+        Retry spec (optional, from step["retry"]):
+          max_attempts: int   — total tries including the first (default 1 = no retry)
+          delay_sec: float    — base sleep between attempts (default 2.0)
+          backoff_multiplier: float — exponential factor per attempt (default 2.0)
+
+        Example step spec:
+          {"id": "extract", "agent": "...", "retry": {"max_attempts": 3, "delay_sec": 5}}
+        """
+        retry_cfg = step.get("retry") or {}
+        max_attempts = int(retry_cfg.get("max_attempts", 1))
+        delay_sec = float(retry_cfg.get("delay_sec", 2.0))
+        backoff = float(retry_cfg.get("backoff_multiplier", 2.0))
+
+        last_exc: Exception | None = None
+        current_delay = delay_sec
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return await self._fire_dag_step(schedule, step, run_id, run_context)
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_attempts:
+                    logger.warning(
+                        "DAG step '%s' attempt %d/%d failed: %s — retrying in %.1fs",
+                        step["id"], attempt, max_attempts, exc, current_delay,
+                    )
+                    await asyncio.sleep(current_delay)
+                    current_delay *= backoff
+
+        raise last_exc  # type: ignore[misc]
+
+    async def _fire_dag_step(
+        self, schedule: dict, step: dict, run_id: str, run_context: dict[str, str]
+    ) -> str:
         """
         Dispatch a DAG step and block until the agent process completes.
 
@@ -437,10 +500,18 @@ class Scheduler:
         is *created* — it does NOT wait for the agent to finish. Without polling
         here the DAG would mark every step done instantly and fire all waves at
         once, defeating the dependency graph entirely.
+
+        Returns the trigger_id so the caller can fetch the agent response for
+        output chaining (steps with pass_output: true).
         """
         envelope = self._make_envelope(schedule, override_agent=step["agent"])
         envelope["payload"]["context"]["pipeline_run_id"] = run_id
         envelope["payload"]["context"]["step_id"] = step["id"]
+
+        # Inject upstream outputs so downstream steps can reference prior results
+        if run_context:
+            envelope["payload"]["context"]["upstream_outputs"] = dict(run_context)
+
         trigger_id = envelope["id"]
         step_timeout = float(step.get("timeout_sec", 300))
 
@@ -452,6 +523,21 @@ class Scheduler:
         status = await self._wait_trigger_complete(trigger_id, timeout_sec=step_timeout)
         if status != "done":
             raise RuntimeError(f"Step '{step['id']}' did not complete successfully (status={status})")
+
+        return trigger_id
+
+    def _collect_step_output(self, step_id: str, trigger_id: str, run_context: dict[str, str]) -> None:
+        """Fetch the completed trigger's agent response and store it in run_context keyed by step_id."""
+        try:
+            with self._conn() as conn:
+                row = conn.execute(
+                    "SELECT response FROM triggers WHERE id=?", (trigger_id,)
+                ).fetchone()
+            if row and row["response"]:
+                run_context[step_id] = str(row["response"])
+                logger.debug("DAG chaining: captured output for step '%s' (%d chars)", step_id, len(run_context[step_id]))
+        except Exception as exc:
+            logger.warning("Failed to collect output for step '%s': %s", step_id, exc)
 
     async def _wait_trigger_complete(self, trigger_id: str, timeout_sec: float = 300.0) -> str:
         """Poll triggers table until status is 'done' or 'failed', or timeout."""
