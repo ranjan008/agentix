@@ -69,6 +69,19 @@ async def replay_trigger(
     return {"trigger_id": new_id, "status": "queued", "replay_of": trigger_id}
 
 
+@router.post("/triggers/cleanup-stale", status_code=200)
+async def cleanup_stale_triggers(
+    store: Annotated[StateStore, Depends(get_store)],
+    identity: Annotated[dict, Depends(require_admin)],
+    older_than_minutes: int = Query(default=10, ge=1),
+) -> dict:
+    """Mark all pending/running triggers older than N minutes as failed."""
+    import time
+    cutoff = time.time() - (older_than_minutes * 60)
+    updated = store.fail_stale_triggers(cutoff)
+    return {"updated": updated, "older_than_minutes": older_than_minutes}
+
+
 @router.get("/triggers/live")
 async def live_triggers(
     store: Annotated[StateStore, Depends(get_store)],

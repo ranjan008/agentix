@@ -8,6 +8,8 @@ GET  /metrics/prometheus  — Prometheus text format scrape endpoint
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -15,6 +17,8 @@ from fastapi.responses import PlainTextResponse
 
 from agentix.api.deps import get_store, require_admin, get_current_identity
 from agentix.storage.state_store import StateStore
+
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[3])
 
 router = APIRouter()
 
@@ -26,9 +30,10 @@ async def cost_summary(
     tenant_id: str | None = Query(None),
     agent_id: str | None = Query(None),
 ) -> dict:
-    import os
     from agentix.observability.cost_ledger import CostLedger
     db_path = os.environ.get("AGENTIX_DB_PATH", "data/agentix.db")
+    if not os.path.isabs(db_path):
+        db_path = str(Path(_PROJECT_ROOT) / db_path)
     ledger = CostLedger(db_path=db_path)
     summary = ledger.summary(tenant_id=tenant_id, agent_id=agent_id)
     return summary

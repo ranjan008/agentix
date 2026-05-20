@@ -6,8 +6,8 @@ export default defineConfig({
   base: '/ui/',
   server: {
     proxy: {
-      '/api': 'http://localhost:8090',
-      '/healthz': 'http://localhost:8090',
+      '/api': 'http://localhost:8000',
+      '/healthz': 'http://localhost:8000',
     },
   },
   build: {

@@ -97,9 +97,19 @@ def build_messages(
             text = f"[Sender: {', '.join(parts)}]\n{text}"
 
     context = envelope["payload"].get("context", {})
-    if context:
+
+    # Inject upstream DAG step outputs so the agent sees prior step results
+    upstream = context.get("upstream_outputs") if context else None
+    if upstream:
         import json as _json
-        text = f"{text}\n\n[Context: {_json.dumps(context)}]"
+        lines = [f"  [{sid}]: {output}" for sid, output in upstream.items()]
+        text = "[Pipeline context — outputs from upstream steps]\n" + "\n".join(lines) + f"\n\n{text}"
+
+    # Append remaining context (excluding upstream_outputs, already injected above)
+    remaining_ctx = {k: v for k, v in context.items() if k != "upstream_outputs"} if context else {}
+    if remaining_ctx:
+        import json as _json
+        text = f"{text}\n\n[Context: {_json.dumps(remaining_ctx)}]"
 
     user_message = {"role": "user", "content": text}
 

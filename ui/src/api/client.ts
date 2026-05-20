@@ -78,7 +78,24 @@ export const api = {
       body: JSON.stringify({ agent_id, message }),
     }),
   chatPoll: (trigger_id: string) =>
-    request<{ trigger_id: string; status: string; response?: string }>(`/chat/${trigger_id}`),
+    request<{ trigger_id: string; status: string; response?: string; error?: string }>(`/chat/${trigger_id}`),
+
+  // HITL
+  getCheckpoint: (trigger_id: string) => request<any>(`/triggers/${trigger_id}/checkpoint`),
+  resumeTrigger: (trigger_id: string, action: 'approve' | 'reject', edit?: Record<string, any>) =>
+    request<any>(`/triggers/${trigger_id}/resume`, {
+      method: 'POST',
+      body: JSON.stringify({ action, edit }),
+    }),
+
+  // Traces
+  listTraces: (params: Record<string, string | number> = {}) => {
+    const q = new URLSearchParams(params as any).toString()
+    return request<any>(`/traces${q ? '?' + q : ''}`)
+  },
+  getTrace: (traceId: string) => request<any>(`/traces/${traceId}`),
+  getTriggerTrace: (triggerId: string) => request<any>(`/triggers/${triggerId}/trace`),
+  deleteTrace: (traceId: string) => request<void>(`/traces/${traceId}`, { method: 'DELETE' }),
 
   // Auth
   authConfig: () => request<any>('/auth/config'),
