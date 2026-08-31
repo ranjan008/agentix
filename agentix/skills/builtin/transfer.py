@@ -74,6 +74,20 @@ async def transfer_to_agent(
     # Override the trigger ID so we can poll for it
     envelope["id"] = trigger_id
 
+    # Create the trigger row *before* spawning. Without this, the row this
+    # function polls for below never exists: save_trigger_response() (called
+    # by the target agent's own output_handler once it finishes) is an
+    # UPDATE-only statement ("UPDATE triggers SET response=?, status='done'
+    # ... WHERE id=?"), so against a nonexistent row it silently updates zero
+    # rows — no exception, nothing to catch. The target agent can genuinely
+    # finish in seconds and this function will still spin until timeout_sec
+    # and report "timed out", because it's polling for a row that was never
+    # created. The top-level watchdog dispatch loop (watchdog/main.py) calls
+    # store.create_trigger(envelope) before spawning for exactly this reason;
+    # this nested dispatch path has to do the same thing itself.
+    from agentix.storage.state_store import StateStore
+    StateStore(db_path).create_trigger(envelope)
+
     # Spawn the target agent
     from agentix.watchdog.agent_spawner import AgentSpawner
     spawner = AgentSpawner(db_path=db_path)
