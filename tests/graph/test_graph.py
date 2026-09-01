@@ -195,6 +195,47 @@ async def test_agent_node_tool_use():
 
 
 @pytest.mark.asyncio
+async def test_agent_node_tool_use_non_anthropic_provider_builds_tool_use_block():
+    """Regression test: AgentNode used to only build a proper `tool_use`
+    content block when `response.raw` was a dict with a "blocks" key —
+    which only AnthropicProvider ever populates. Every other provider
+    (GeminiProvider, the OpenAI-compatible local_provider.py backing
+    ollama/lmstudio/vllm/local, openai_provider.py) returns `raw` as its
+    own SDK response object instead, so the old code silently fell back
+    to storing plain text with no tool_use block at all — breaking the
+    very next turn's tool_result validation ("unexpected tool_use_id
+    found in tool_result blocks: ... no corresponding tool_use block in
+    the previous message"). Reproduces that shape here: `raw` is a plain
+    object, not a dict, exactly like GeminiProvider/local_provider.py
+    actually return."""
+    class _NonDictRaw:
+        pass
+
+    class _TC:
+        id = "tc_1"
+        name = "web_search"
+        input = {"query": "test"}
+
+    resp = _MockResponse("", "tool_use", tool_calls=[_TC()])
+    resp.raw = _NonDictRaw()  # simulate a non-Anthropic provider's raw response
+
+    llm = MockLLM([resp])
+    node = AgentNode("agent", llm)
+    patch = await node.run({"messages": []})
+
+    assert patch["stop_reason"] == "tool_use"
+    assistant_msg = patch["messages"][0]
+    assert assistant_msg["role"] == "assistant"
+    content = assistant_msg["content"]
+    assert isinstance(content, list), "content must be content blocks, not a plain string, or tool_result can never validly reference it"
+    tool_use_blocks = [b for b in content if b.get("type") == "tool_use"]
+    assert len(tool_use_blocks) == 1
+    assert tool_use_blocks[0]["id"] == "tc_1"
+    assert tool_use_blocks[0]["name"] == "web_search"
+    assert tool_use_blocks[0]["input"] == {"query": "test"}
+
+
+@pytest.mark.asyncio
 async def test_agent_node_accumulates_tokens():
     llm = MockLLM([_MockResponse("done", "end_turn")])
     node = AgentNode("agent", llm)
