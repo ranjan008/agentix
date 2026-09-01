@@ -55,8 +55,21 @@ class ConnectorEngine:
                 _logger.warning("Connector %r not found in store — skipping", name)
                 continue
 
-            merged_cfg = {**(stored or {}), **inline_cfg}
-            connector_type = merged_cfg.pop("type", name)
+            # StateStore.get_connector() returns the full DB row — name,
+            # type, config, enabled, status, tenant_id, timestamps — with
+            # the actual credential fields nested one level down under
+            # "config", not a flat dict of credential fields itself. Using
+            # `stored` directly here used to merge that whole wrapper as
+            # if it WERE the flat config, so a connector's real
+            # credentials (e.g. Gmail's credentials_json) ended up at
+            # stored["config"]["credentials_json"] and were never actually
+            # passed to the connector, which only ever reads top-level
+            # keys — every connector call failed with "requires either
+            # 'access_token' or 'credentials_json'" (or the equivalent for
+            # other connectors) regardless of what was really stored.
+            stored_config = (stored or {}).get("config", {})
+            connector_type = inline_cfg.get("type") or (stored or {}).get("type", name)
+            merged_cfg = {**stored_config, **{k: v for k, v in inline_cfg.items() if k != "type"}}
 
             cls = get_connector_class(connector_type)
             if cls is None:

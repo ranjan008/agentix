@@ -105,7 +105,35 @@ class AgentNode(BaseNode):
             raw_blocks = None
             if isinstance(response.raw, dict):
                 raw_blocks = response.raw.get("blocks")
-            assistant_content = raw_blocks or response.content or ""
+            if raw_blocks:
+                assistant_content = raw_blocks
+            else:
+                # raw["blocks"] is only populated by AnthropicProvider
+                # (agentix/llm/providers/anthropic_provider.py) — every
+                # other provider (GeminiProvider, the OpenAI-compatible
+                # local_provider.py backing the ollama/lmstudio/vllm/local
+                # aliases, openai_provider.py) returns `raw` as its own
+                # SDK response object instead, so `isinstance(raw, dict)`
+                # is False and this used to fall straight through to
+                # `response.content` — plain text with the tool_use block
+                # dropped entirely. The very next turn's tool_result then
+                # referenced a tool_use_id that didn't exist in any prior
+                # message, and Anthropic's API rejected it outright
+                # ("unexpected tool_use_id found in tool_result blocks").
+                # Since `default_provider: gemini` is tried before
+                # `anthropic` in every configured fallback chain, this
+                # broke tool-calling graph loops on effectively every real
+                # run, not just as an edge case. Fix: build the content
+                # blocks directly from `response.tool_calls`, which every
+                # BaseLLMProvider populates uniformly regardless of which
+                # provider actually served the call.
+                assistant_content = []
+                if response.content:
+                    assistant_content.append({"type": "text", "text": response.content})
+                assistant_content.extend(
+                    {"type": "tool_use", "id": tc.id, "name": tc.name, "input": tc.input}
+                    for tc in response.tool_calls
+                )
             patch["messages"] = [{"role": "assistant", "content": assistant_content}]
             patch["tool_calls"] = [
                 {"id": tc.id, "name": tc.name, "input": tc.input}
