@@ -49,6 +49,20 @@ def _load_builtins() -> None:
             github, slack, notion, jira, hubspot,
             stripe, sendgrid, twilio, airtable,
             linear, discord, webhook,
+            # gmail/google_calendar/google_drive/google_sheets were real,
+            # fully-implemented connector modules (each with its own
+            # @register_connector(...) decorator) that this list simply
+            # never imported — meaning their decorators never ran, and
+            # get_connector_class() for any of these four always returned
+            # None, unconditionally, no matter how correctly a caller
+            # configured credentials or built its agent spec. Found live:
+            # a Gmail-using agent had valid credentials in the store,
+            # ConnectorEngine.load_for_agent() found them fine, and still
+            # failed with "Unknown connector type 'gmail'" — reproduced by
+            # calling get_connector_class("gmail") directly and confirming
+            # it returned None even with the module sitting right there in
+            # agentix/connectors/builtin/gmail.py.
+            gmail, google_calendar, google_drive, google_sheets,
         )
     except Exception as exc:  # pragma: no cover
         _logger.warning("Could not load some builtin connectors: %s", exc)
