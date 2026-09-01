@@ -77,10 +77,17 @@ _CALLER = {
 def _make_db(tmp_path: Path) -> str:
     db_path = str(tmp_path / "swarm.db")
     conn = sqlite3.connect(db_path)
+    # `channel` added — transfer_to_agent now calls
+    # StateStore(db_path).create_trigger(envelope) before spawning (see
+    # agentix/skills/builtin/transfer.py), and StateStore.create_trigger()
+    # INSERTs into this exact column; this fixture's schema fell out of
+    # sync with the real one (agentix/storage/state_store.py's own
+    # CREATE TABLE) when that call was added and started failing every
+    # test in this file with "table triggers has no column named channel".
     conn.execute(
         """CREATE TABLE IF NOT EXISTS triggers
            (id TEXT PRIMARY KEY, status TEXT, response TEXT, payload TEXT,
-            agent_id TEXT, created_at REAL, updated_at REAL)"""
+            agent_id TEXT, channel TEXT, created_at REAL, updated_at REAL)"""
     )
     conn.commit()
     conn.close()
