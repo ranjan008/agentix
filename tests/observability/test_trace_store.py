@@ -228,6 +228,50 @@ def test_purge_before_keeps_new_traces(ts):
     assert len(ts.list_traces()) == 1
 
 
+def test_purge_before_tenant_scoped_leaves_other_tenants_alone(ts):
+    """A pooled store serves many tenants with different plans/retention —
+    purge_before(cutoff, tenant_id=...) must only ever touch that one
+    tenant's rows, never another tenant's, even with an identical cutoff
+    that would otherwise remove both."""
+    old_a = ts.start_trace("agent-a", tenant_id="tenant-a")
+    old_b = ts.start_trace("agent-b", tenant_id="tenant-b")
+    cutoff = time.time() + 1
+
+    removed = ts.purge_before(cutoff, tenant_id="tenant-a")
+
+    assert removed == 1
+    assert ts.get_trace(old_a) is None
+    assert ts.get_trace(old_b) is not None  # tenant-b untouched
+
+
+def test_purge_before_tenant_scoped_ignores_unmatched_tenant(ts):
+    ts.start_trace("agent-a", tenant_id="tenant-a")
+    cutoff = time.time() + 1
+
+    removed = ts.purge_before(cutoff, tenant_id="tenant-does-not-exist")
+
+    assert removed == 0
+    assert len(ts.list_traces()) == 1
+
+
+def test_list_traces_since_ts_excludes_older_traces(ts):
+    ts.start_trace("agent-a")  # started before the cutoff below
+    time.sleep(0.01)
+    cutoff = time.time()
+    time.sleep(0.01)
+    ts.start_trace("agent-a")  # started after
+
+    visible = ts.list_traces(since_ts=cutoff)
+
+    assert len(visible) == 1
+
+
+def test_list_traces_since_ts_none_is_unfiltered(ts):
+    ts.start_trace("agent-a")
+    ts.start_trace("agent-a")
+    assert len(ts.list_traces(since_ts=None)) == 2
+
+
 # ---------------------------------------------------------------------------
 # count_traces
 # ---------------------------------------------------------------------------
