@@ -254,6 +254,22 @@ def test_purge_before_tenant_scoped_ignores_unmatched_tenant(ts):
     assert len(ts.list_traces()) == 1
 
 
+def test_purge_before_agent_scoped_excludes_legal_hold_agent(ts):
+    """Two agents on the same tenant, one under a compliance legal hold —
+    purging by (tenant_id, agent_id) together must remove only the named
+    agent's traces, never the other agent's, even with an identical
+    cutoff and tenant."""
+    held = ts.start_trace("agent-legal-hold", tenant_id="tenant-a")
+    normal = ts.start_trace("agent-normal", tenant_id="tenant-a")
+    cutoff = time.time() + 1
+
+    removed = ts.purge_before(cutoff, tenant_id="tenant-a", agent_id="agent-normal")
+
+    assert removed == 1
+    assert ts.get_trace(held) is not None  # untouched
+    assert ts.get_trace(normal) is None
+
+
 def test_list_traces_since_ts_excludes_older_traces(ts):
     ts.start_trace("agent-a")  # started before the cutoff below
     time.sleep(0.01)

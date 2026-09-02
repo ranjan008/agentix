@@ -292,7 +292,9 @@ class TraceStore:
             cur.execute("DELETE FROM spans WHERE trace_id=?", (trace_id,))
             cur.execute("DELETE FROM traces WHERE id=?", (trace_id,))
 
-    def purge_before(self, cutoff_ts: float, *, tenant_id: str | None = None) -> int:
+    def purge_before(
+        self, cutoff_ts: float, *, tenant_id: str | None = None, agent_id: str | None = None
+    ) -> int:
         """Delete traces (and their spans) older than cutoff_ts. Returns
         count removed.
 
@@ -303,13 +305,23 @@ class TraceStore:
         retention windows; a blind whole-file purge would either purge a
         Pro tenant's traces on Free's schedule or keep a Free tenant's
         traces past their window, depending on which cutoff got passed.
-        tenant_id=None preserves the original whole-file behavior, still
+
+        `agent_id`, when also set, narrows further to one agent within
+        that tenant — needed because retention floors can vary WITHIN one
+        tenant too (an agent under a compliance legal hold must be
+        excluded from any sweep entirely, regardless of the tenant's
+        otherwise-uniform plan-driven cutoff).
+
+        Both None preserves the original whole-file behavior, still
         correct for a dedicated single-tenant store."""
         sql = "SELECT id FROM traces WHERE started_at < ?"
         params: list = [cutoff_ts]
         if tenant_id:
             sql += " AND tenant_id = ?"
             params.append(tenant_id)
+        if agent_id:
+            sql += " AND agent_id = ?"
+            params.append(agent_id)
 
         with self._tx() as cur:
             old = cur.execute(sql, params).fetchall()
