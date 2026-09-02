@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS traces (
 CREATE INDEX IF NOT EXISTS idx_traces_trigger  ON traces(trigger_id);
 CREATE INDEX IF NOT EXISTS idx_traces_agent    ON traces(agent_id);
 CREATE INDEX IF NOT EXISTS idx_traces_started  ON traces(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_traces_tenant_started ON traces(tenant_id, started_at);
 
 CREATE TABLE IF NOT EXISTS spans (
     id              TEXT PRIMARY KEY,
@@ -197,7 +198,13 @@ class TraceStore:
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        since_ts: float | None = None,
     ) -> list[dict]:
+        """`since_ts`, when set, excludes any trace that started before it
+        — the read-path half of tenant-scoped retention: a trace past its
+        plan's retention window must be invisible even before a purge
+        sweep has actually deleted it (a scheduled job can lag; the read
+        path shouldn't)."""
         sql = "SELECT * FROM traces WHERE 1=1"
         params: list = []
         if agent_id:
@@ -209,6 +216,9 @@ class TraceStore:
         if status:
             sql += " AND status=?"
             params.append(status)
+        if since_ts is not None:
+            sql += " AND started_at>=?"
+            params.append(since_ts)
         sql += " ORDER BY started_at DESC LIMIT ? OFFSET ?"
         params += [limit, offset]
 
@@ -282,12 +292,27 @@ class TraceStore:
             cur.execute("DELETE FROM spans WHERE trace_id=?", (trace_id,))
             cur.execute("DELETE FROM traces WHERE id=?", (trace_id,))
 
-    def purge_before(self, cutoff_ts: float) -> int:
-        """Delete traces (and their spans) older than cutoff_ts. Returns count removed."""
+    def purge_before(self, cutoff_ts: float, *, tenant_id: str | None = None) -> int:
+        """Delete traces (and their spans) older than cutoff_ts. Returns
+        count removed.
+
+        `tenant_id`, when set, scopes the purge to one tenant — a pooled
+        store (one SQLite file serving every tenant on a shared platform-
+        key runtime) can't apply a single global cutoff correctly, since
+        different tenants can be on different plans with different
+        retention windows; a blind whole-file purge would either purge a
+        Pro tenant's traces on Free's schedule or keep a Free tenant's
+        traces past their window, depending on which cutoff got passed.
+        tenant_id=None preserves the original whole-file behavior, still
+        correct for a dedicated single-tenant store."""
+        sql = "SELECT id FROM traces WHERE started_at < ?"
+        params: list = [cutoff_ts]
+        if tenant_id:
+            sql += " AND tenant_id = ?"
+            params.append(tenant_id)
+
         with self._tx() as cur:
-            old = cur.execute(
-                "SELECT id FROM traces WHERE started_at < ?", (cutoff_ts,)
-            ).fetchall()
+            old = cur.execute(sql, params).fetchall()
             ids = [r["id"] for r in old]
             if ids:
                 placeholders = ",".join("?" * len(ids))
