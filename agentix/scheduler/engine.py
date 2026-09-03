@@ -69,17 +69,21 @@ CREATE INDEX IF NOT EXISTS idx_pipeline_schedule ON pipeline_runs(schedule_id);
 def _cron_next(expression: str, after: float | None = None) -> float:
     """
     Compute the next fire time (Unix timestamp) for a cron expression.
-    Requires: pip install croniter
-    Falls back to a simple 60-second interval if croniter is unavailable.
+    croniter is a real, declared dependency (see pyproject.toml) — this
+    used to import it as a soft, undeclared one and silently fall back to
+    a flat 60-second interval for EVERY cron expression when missing,
+    logging only a WARNING. Found live: a production schedule created
+    with "0 18 * * *" (intended: once daily) instead fired every 60
+    seconds for several minutes before being caught — the fallback's log
+    line looked like routine operation, not a signal that a core feature
+    had silently stopped doing what it claimed. Raising here instead is
+    far safer: a schedule that's 60x more expensive and wrong is a much
+    worse failure mode than one that visibly refuses to run at all.
     """
     base = datetime.fromtimestamp(after or time.time(), tz=timezone.utc)
-    try:
-        from croniter import croniter
-        itr = croniter(expression, base)
-        return itr.get_next(float)
-    except ImportError:
-        logger.warning("croniter not installed — schedule fires every 60s. pip install croniter")
-        return (after or time.time()) + 60.0
+    from croniter import croniter
+    itr = croniter(expression, base)
+    return itr.get_next(float)
 
 
 # ---------------------------------------------------------------------------

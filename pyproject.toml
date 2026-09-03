@@ -35,6 +35,16 @@ dependencies = [
     # Utilities
     "python-dotenv>=1.0",
     "httpx>=0.27",
+    # Scheduler (agentix/scheduler/engine.py) — real cron-expression
+    # evaluation. Previously imported as a soft, undeclared dependency
+    # with a silent fallback to "fire every 60s" for ANY cron expression
+    # when missing; found live when a production schedule created with
+    # "0 18 * * *" (intended: once daily) instead fired every 60 seconds
+    # for several minutes before being caught, because croniter was never
+    # actually installed anywhere that imports this package. A hard
+    # dependency here is what makes the scheduler's cron mode mean what
+    # it says.
+    "croniter>=2.0",
 ]
 
 [project.optional-dependencies]
