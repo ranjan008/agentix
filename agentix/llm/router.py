@@ -24,6 +24,20 @@ Configuration example (watchdog.yaml):
       local:                                     # Ollama / LM Studio / vLLM
         base_url: http://localhost:11434/v1
         model: llama3.2
+      # Any name works as a provider key — `provider_type` (defaulting to
+      # the key itself) picks the class from _PROVIDER_REGISTRY, so
+      # several distinct OpenAI-compatible endpoints can coexist, each
+      # under its own name, all sharing the "local" class:
+      qwen:
+        provider_type: local
+        base_url: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+        api_key: ${QWEN_API_KEY}
+        model: qwen-turbo
+      zai:
+        provider_type: local
+        base_url: https://api.z.ai/api/paas/v4
+        api_key: ${ZAI_API_KEY}
+        model: glm-4.5-flash
 
     routing:
       # Route by agent tag
@@ -97,16 +111,34 @@ class LLMRouter:
         self._routing_rules: list[dict] = llm_cfg.get("routing", {}).get("rules", [])
         self._fallback_chain: list[str] = llm_cfg.get("routing", {}).get("fallback_chain", [])
 
-        # Instantiate configured providers
+        # Instantiate configured providers. The dict key is the provider's
+        # *name* — what routing rules, fallback_chain, and complete()'s own
+        # `provider=` argument all refer to it as. `provider_type` (falling
+        # back to the name itself) is what selects the actual CLASS from
+        # _PROVIDER_REGISTRY — this is what lets multiple distinct
+        # instances of the same class (e.g. several OpenAI-compatible
+        # endpoints) coexist under their own names, exactly as
+        # local_provider.py's own docstring documents ("Multiple local
+        # instances: vllm: provider_type: local, base_url: ..."). That
+        # docstring described this class-vs-name split as already
+        # supported; this loop previously only ever did
+        # `_PROVIDER_REGISTRY.get(name)`, so any non-canonical key (that
+        # exact "vllm" example included, since "vllm" already means
+        # something else in the registry) silently logged "unknown
+        # provider" and was never instantiated at all — found live trying
+        # to add a second and third OpenAI-compatible provider to a
+        # fallback chain that had already used all of local/ollama/
+        # lmstudio/vllm, the registry's only four pre-registered aliases.
         self._providers: dict[str, BaseLLMProvider] = {}
         for name, pcfg in llm_cfg.get("providers", {}).items():
-            cls = _PROVIDER_REGISTRY.get(name)
+            provider_type = pcfg.get("provider_type", name)
+            cls = _PROVIDER_REGISTRY.get(provider_type)
             if cls is None:
-                log.warning("LLMRouter: unknown provider '%s' — skipping", name)
+                log.warning("LLMRouter: unknown provider '%s' (provider_type=%s) — skipping", name, provider_type)
                 continue
             try:
                 self._providers[name] = cls(pcfg)
-                log.info("LLMRouter: registered provider '%s'", name)
+                log.info("LLMRouter: registered provider '%s' (type=%s)", name, provider_type)
             except Exception as exc:
                 log.error("LLMRouter: failed to init provider '%s': %s", name, exc)
 
