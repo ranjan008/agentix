@@ -27,6 +27,21 @@ Config example (watchdog.yaml):
         model: mistral-7b-instruct
         api_key: ignored
 
+      # extra_body: forwarded verbatim as extra JSON fields on the request
+      # body (the openai SDK's own passthrough mechanism for
+      # vendor-specific params outside its typed signature). Needed for
+      # e.g. Z.ai's GLM-4.5 family, which defaults to emitting a
+      # reasoning_content preamble before content and can exhaust
+      # max_tokens before ever writing the real answer:
+      zai:
+        provider_type: local
+        base_url: https://api.z.ai/api/paas/v4
+        model: glm-4.5-flash
+        api_key: ${ZAI_API_KEY}
+        extra_body:
+          thinking:
+            type: disabled
+
 Env vars:
   LOCAL_LLM_BASE_URL   — override base_url
   LOCAL_LLM_MODEL      — override model
@@ -74,6 +89,12 @@ class LocalProvider(BaseLLMProvider):
             or os.environ.get("LOCAL_LLM_API_KEY", "ollama")
         )
         self._supports_tools: bool = cfg.get("supports_tools", True)
+        # Verbatim passthrough for vendor-specific request fields the
+        # openai SDK's typed create() signature doesn't know about (e.g.
+        # Z.ai's `thinking: {type: disabled}` to skip GLM-4.5's reasoning
+        # preamble). Absent from every config that doesn't set it, so this
+        # changes nothing for existing local/ollama/lmstudio/vllm setups.
+        self._extra_body: dict = cfg.get("extra_body") or {}
         self._client = None
 
     def _get_client(self):
@@ -114,6 +135,9 @@ class LocalProvider(BaseLLMProvider):
         if tools and self._supports_tools:
             params["tools"] = [_to_openai_tool(t) for t in tools]
             params["tool_choice"] = "auto"
+
+        if self._extra_body:
+            params["extra_body"] = self._extra_body
 
         log.debug("LocalProvider → %s  model=%s", self._base_url, model)
         resp = await client.chat.completions.create(**params)
