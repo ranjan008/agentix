@@ -38,6 +38,16 @@ Configuration example (watchdog.yaml):
         base_url: https://api.z.ai/api/paas/v4
         api_key: ${ZAI_API_KEY}
         model: glm-4.5-flash
+      # timeout_sec (any provider, default 45s — see
+      # DEFAULT_PROVIDER_TIMEOUT_SEC below): bounds how long ONE attempt in
+      # a fallback_chain can take before the router gives up on it and
+      # tries the next provider. Without this, a merely-slow (not erroring)
+      # provider can stall the whole chain for minutes, since none of the
+      # provider SDKs set their own client-level timeout.
+      slow_provider_example:
+        provider_type: local
+        base_url: https://example.com/v1
+        timeout_sec: 20
 
     routing:
       # Route by agent tag
@@ -57,6 +67,7 @@ Configuration example (watchdog.yaml):
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -65,6 +76,23 @@ from agentix.llm.base import BaseLLMProvider, LLMResponse
 log = logging.getLogger(__name__)
 
 _PROVIDER_REGISTRY: dict[str, type[BaseLLMProvider]] = {}
+
+# No provider adapter (anthropic_provider.py, openai_provider.py,
+# local_provider.py) ever sets an explicit client-level timeout — each one
+# just does `AsyncOpenAI(api_key=...)` / `AsyncAnthropic(api_key=...)` with
+# no `timeout=`, so every call inherits that SDK's own default: 600s read
+# timeout for both the openai and anthropic python SDKs (confirmed against
+# the installed packages' own DEFAULT_TIMEOUT), and gemini_provider.py sets
+# none either. In a multi-provider fallback_chain, a single provider that's
+# merely slow (not erroring) can block the ENTIRE chain for minutes before
+# the next provider is ever tried — found live investigating a graph run
+# that took 209s across 4 LLM calls (a plausible full account: several
+# providers each burning a large chunk of that time on a slow-but-not-yet-
+# failed attempt before falling through, rather than the successful calls
+# alone accounting for it). Bounding each attempt is a router-level
+# concern, not something each provider adapter should reimplement
+# separately — this wraps every call uniformly regardless of provider.
+DEFAULT_PROVIDER_TIMEOUT_SEC = 45.0
 
 
 def _register(name: str):
@@ -130,6 +158,11 @@ class LLMRouter:
         # fallback chain that had already used all of local/ollama/
         # lmstudio/vllm, the registry's only four pre-registered aliases.
         self._providers: dict[str, BaseLLMProvider] = {}
+        # Per-provider call timeout (seconds) — `timeout_sec` in that
+        # provider's own config, defaulting to DEFAULT_PROVIDER_TIMEOUT_SEC
+        # when unset (every existing watchdog.yaml today). See that
+        # constant's comment for why this exists at all.
+        self._provider_timeouts: dict[str, float] = {}
         for name, pcfg in llm_cfg.get("providers", {}).items():
             provider_type = pcfg.get("provider_type", name)
             cls = _PROVIDER_REGISTRY.get(provider_type)
@@ -138,6 +171,7 @@ class LLMRouter:
                 continue
             try:
                 self._providers[name] = cls(pcfg)
+                self._provider_timeouts[name] = float(pcfg.get("timeout_sec", DEFAULT_PROVIDER_TIMEOUT_SEC))
                 log.info("LLMRouter: registered provider '%s' (type=%s)", name, provider_type)
             except Exception as exc:
                 log.error("LLMRouter: failed to init provider '%s': %s", name, exc)
@@ -148,6 +182,7 @@ class LLMRouter:
             cls = _PROVIDER_REGISTRY.get(self._default_provider_name)
             if cls:
                 self._providers[self._default_provider_name] = cls({})
+                self._provider_timeouts[self._default_provider_name] = DEFAULT_PROVIDER_TIMEOUT_SEC
 
     # ------------------------------------------------------------------
     # Public API
@@ -191,20 +226,42 @@ class LLMRouter:
             # Only pass the caller-specified model to the primary provider.
             # Fallback providers use their own configured default model.
             model_for_call = model if i == 0 else None
+            # getattr, not self._provider_timeouts directly: agentix's own
+            # testing.harness builds an LLMRouter via __new__() (bypassing
+            # __init__ entirely) and hand-sets only the attributes it
+            # needs — a real, established pattern, not a bug — so this
+            # attribute can legitimately not exist on every instance.
+            timeout = getattr(self, "_provider_timeouts", {}).get(pname, DEFAULT_PROVIDER_TIMEOUT_SEC)
             try:
                 t0 = time.monotonic()
-                resp = await p.complete(
-                    messages=messages,
-                    model=model_for_call,
-                    tools=tools,
-                    system=system,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    **kwargs,
+                resp = await asyncio.wait_for(
+                    p.complete(
+                        messages=messages,
+                        model=model_for_call,
+                        tools=tools,
+                        system=system,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        **kwargs,
+                    ),
+                    timeout=timeout,
                 )
                 elapsed = time.monotonic() - t0
                 log.debug("LLMRouter: %s %.2fs in=%d out=%d", pname, elapsed, resp.input_tokens, resp.output_tokens)
                 return resp
+            except TimeoutError:
+                # Note for providers backed by a thread pool rather than a
+                # native async client (gemini_provider.py uses
+                # run_in_executor): wait_for only stops AWAITING the
+                # result — the underlying thread keeps running to
+                # completion in the background and its result is simply
+                # discarded. That's fine here (no resource leak beyond one
+                # extra outstanding thread, no result to act on), and it's
+                # still what makes the router itself move on within
+                # `timeout` seconds rather than blocking the whole chain.
+                elapsed = time.monotonic() - t0
+                log.warning("LLMRouter: provider '%s' timed out after %.0fs (limit=%.0fs) — trying next", pname, elapsed, timeout)
+                last_exc = TimeoutError(f"provider '{pname}' timed out after {timeout:.0f}s")
             except Exception as exc:
                 log.warning("LLMRouter: provider '%s' failed: %s — trying next", pname, exc)
                 last_exc = exc

@@ -2,6 +2,20 @@
 Graph runner — builds a CompiledGraph from an agent spec's `graph:` block
 and executes it for a given trigger envelope.
 
+IMPORTANT — the "final_answer" convention: whatever ends up in
+state["final_answer"] when the graph reaches __end__ is what
+agent_runtime/main.py sends back as the reply text on every channel. This
+is true regardless of state_schema — state_schema only configures the
+*reducer* a key uses when patched, it doesn't make a key special. What
+makes "final_answer" special is entirely that main.py's own post-processing
+reads that one literal key name; nothing enforces an agent actually writing
+it. A graph is free to use a different output_key (see `nodes:` below) —
+run_graph() falls back to whatever the last-executed agent node wrote under
+its own output_key if "final_answer" itself is empty, so this doesn't
+silently produce an empty reply, but a graph that always wants its answer
+under a specific name should still just set output_key: final_answer
+explicitly rather than relying on the fallback.
+
 YAML graph schema:
 
   graph:
@@ -341,5 +355,26 @@ async def run_graph(
     steps = final_state.get("__steps__", 0)
     capped = final_state.get("__max_steps_reached__", False)
     logger.info("Graph finished: steps=%d max_steps_reached=%s", steps, capped)
+
+    # "final_answer" is an undocumented convention every caller of run_graph
+    # (agent_runtime/main.py) reads as the reply text — a graph whose last
+    # node writes somewhere else via a custom output_key (a real, supported
+    # feature: _build_node above reads output_key straight off the node
+    # spec) produced a perfectly valid answer that the caller would report
+    # as "no final_answer" anyway. Fall back to whatever the actually-last-
+    # executed agent node wrote under ITS OWN output_key, rather than
+    # silently discarding a real result just because it wasn't named the
+    # default. Only applies when "final_answer" itself is empty — a node
+    # that explicitly opts into writing final_answer (the default) keeps
+    # working exactly as before.
+    if not final_state.get("final_answer"):
+        node_output_keys = {
+            spec["id"]: spec.get("output_key", "final_answer")
+            for spec in graph_spec.get("nodes", [])
+            if spec.get("type") == "agent"
+        }
+        fallback_key = node_output_keys.get(final_state.get("__last_node__"))
+        if fallback_key and final_state.get(fallback_key):
+            final_state["final_answer"] = final_state[fallback_key]
 
     return final_state

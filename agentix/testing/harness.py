@@ -95,6 +95,7 @@ class AgentTestHarness:
         router._default_provider_name = "mock"
         router._routing_rules = []
         router._fallback_chain = []
+        router._provider_timeouts = {}
 
         store = StateStore(self._db_path)
         agent_id = self._spec.get("metadata", {}).get("name", "test-agent")
