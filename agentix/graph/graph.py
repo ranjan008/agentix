@@ -176,6 +176,13 @@ class CompiledGraph:
             else:
                 state = {**state, **patch}
 
+            # Not schema-validated, same as __steps__/__max_steps_reached__
+            # below — lets a caller resolve an output convention (e.g. which
+            # state key holds the "real" answer) from whichever node
+            # actually ran last, without the graph engine itself knowing
+            # anything about node-type-specific semantics like output_key.
+            state["__last_node__"] = current
+
             current = self._resolve_next(current, state)
 
         if steps >= max_steps:
