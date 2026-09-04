@@ -213,7 +213,29 @@ def _build_node(node_spec: dict, llm: Any, executor: Any, all_tool_schemas: list
         elif not node_spec[_tools_key]:
             tools = None                       # empty list → no tools
         else:
-            tools = [s for s in all_tool_schemas if s["name"] in node_spec[_tools_key]] or None
+            requested = node_spec[_tools_key]
+            tools = [s for s in all_tool_schemas if s["name"] in requested]
+            # A requested name that matches nothing used to silently
+            # collapse into `tools or None` — indistinguishable from
+            # "no tools intended". Found live: a node with tools:
+            # ["notion"] (a connector bare name, not that connector's
+            # real per-action tool names) got tools=None this way, the
+            # LLM had nothing to call, and it narrated having performed
+            # the action instead — the graph reported success with no
+            # tool ever invoked. A node that explicitly asks for specific
+            # tools and gets none of them is a misconfiguration, not an
+            # intentional "no tools" — fail loudly at build time instead
+            # of silently letting the model fabricate a result.
+            matched = {s["name"] for s in tools}
+            unmatched = [n for n in requested if n not in matched]
+            if unmatched:
+                available = sorted(s["name"] for s in all_tool_schemas)
+                raise ValueError(
+                    f"Agent node '{node_id}' requests tool(s) {unmatched} not available to "
+                    f"this agent (loaded: {available}) — check the connector/skill is granted "
+                    "at the agent level and that the name matches its real tool name exactly."
+                )
+            tools = tools or None
 
         return AgentNode(
             name=node_id,
