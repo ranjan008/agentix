@@ -85,6 +85,25 @@ class AgentNode(BaseNode):
     async def run(self, state: dict[str, Any]) -> dict[str, Any]:
         messages = list(state.get(self._messages_key, []))
 
+        if messages and messages[-1].get("role") == "assistant":
+            # An agent -> agent edge with no ToolNode in between: the
+            # previous node's own output is the last thing in the shared
+            # transcript (AgentNode's own end_turn branch below writes
+            # exactly that). agent -> tool -> agent doesn't hit this —
+            # ToolNode always appends a role: "user" tool_result message
+            # first — but a direct two-step pipeline (e.g. research ->
+            # draft) does, on literally its first edge. Anthropic rejects
+            # a request whose messages don't end on role: user ("This
+            # model does not support assistant message prefill. The
+            # conversation must end with a user message.") — found live,
+            # a real 400 on the most ordinary shape a graph can have.
+            # Each node's own system_prompt is what actually tells it
+            # what to do; this placeholder only satisfies the wire-format
+            # requirement, and is never written back into shared state —
+            # every node independently derives whether it needs one from
+            # whatever it actually reads.
+            messages = messages + [{"role": "user", "content": "Continue."}]
+
         response = await self._llm.complete(
             messages=messages,
             system=self._system,
