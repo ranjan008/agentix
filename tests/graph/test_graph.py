@@ -244,6 +244,67 @@ async def test_agent_node_accumulates_tokens():
 
 
 # ===========================================================================
+# AgentNode — agent -> agent handoff (no ToolNode in between)
+# ===========================================================================
+#
+# Found live: a two-node graph (research -> draft, a direct edge, the most
+# ordinary shape a graph can have) failed on Anthropic with a real 400 -
+# "This model does not support assistant message prefill. The conversation
+# must end with a user message." research's own end_turn branch (above)
+# writes {"role": "assistant", ...} into state["messages"] (reducer:
+# append); draft then read that same list, still ending on assistant, and
+# sent it straight to the provider. agent -> tool -> agent never hit this -
+# ToolNode always appends a role: "user" tool_result message first - only
+# a direct agent -> agent edge does.
+
+@pytest.mark.asyncio
+async def test_agent_node_injects_continuation_after_prior_assistant_turn():
+    llm = MockLLM([_MockResponse("draft text", "end_turn")])
+    node = AgentNode("draft", llm, output_key="final_answer")
+    prior_state = {
+        "messages": [
+            {"role": "user", "content": "Research this topic"},
+            {"role": "assistant", "content": "Here is what I found"},  # research's own output
+        ]
+    }
+    await node.run(prior_state)
+
+    sent = llm.calls[0]["messages"]
+    assert sent[-1] == {"role": "user", "content": "Continue."}
+    assert sent[-2] == {"role": "assistant", "content": "Here is what I found"}
+
+
+@pytest.mark.asyncio
+async def test_agent_node_no_continuation_when_already_ends_on_user():
+    """The normal case (first node in a graph, or after a ToolNode) must
+    not get an extra turn injected."""
+    llm = MockLLM([_MockResponse("answer", "end_turn")])
+    node = AgentNode("agent", llm)
+    await node.run({"messages": [{"role": "user", "content": "hi"}]})
+
+    sent = llm.calls[0]["messages"]
+    assert sent == [{"role": "user", "content": "hi"}]
+
+
+@pytest.mark.asyncio
+async def test_agent_node_continuation_turn_not_persisted_to_state():
+    """The injected turn is local to this one call, not written back —
+    each node independently derives whether it needs one from whatever it
+    actually reads, so state must not accumulate synthetic "Continue."
+    messages every hop."""
+    llm = MockLLM([_MockResponse("draft text", "end_turn")])
+    node = AgentNode("draft", llm, output_key="final_answer")
+    patch = await node.run({
+        "messages": [
+            {"role": "user", "content": "Research this topic"},
+            {"role": "assistant", "content": "Here is what I found"},
+        ]
+    })
+    assert patch["messages"] == [{"role": "assistant", "content": "draft text"}]
+    assert not any(m.get("content") == "Continue." for m in patch["messages"])
+
+
+# ===========================================================================
 # ToolNode (with mock executor)
 # ===========================================================================
 
