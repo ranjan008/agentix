@@ -237,6 +237,43 @@ def test_agent_node_allowlist_filters_tools():
     assert compiled is not None
 
 
+def test_agent_node_unmatched_tool_name_raises_instead_of_silently_dropping():
+    """The actual regression: a node requesting a tool name that matches
+    NOTHING in the loaded schemas used to silently collapse to tools=None
+    (`[...] or None`) — indistinguishable from "no tools intended". Found
+    live: a node with tools: ["notion"] (a connector's bare grant name,
+    not any of its real per-action tool names) got tools=None this way;
+    the LLM had nothing to call and narrated having done the action
+    instead. Must now fail loudly at build time."""
+    spec = {
+        "entry": "agent",
+        "nodes": [{"id": "research", "type": "agent", "system_prompt": "", "tools": ["notion"]}],
+        "edges": [],
+    }
+    with pytest.raises(ValueError, match="research.*notion"):
+        build_graph_from_spec(
+            spec, llm=MockLLM(), executor=None,
+            tool_schemas=[{"name": "notion__create_page"}, {"name": "web_search"}],
+        )
+
+
+def test_agent_node_partially_unmatched_tools_raises_naming_the_bad_one():
+    """One valid name plus one typo'd/unmatched name must still raise —
+    silently running with fewer tools than the node actually asked for is
+    the same class of failure as running with none."""
+    spec = {
+        "entry": "agent",
+        "nodes": [{"id": "agent", "type": "agent", "system_prompt": "",
+                   "tools": ["web_search", "web_serach"]}],  # typo
+        "edges": [],
+    }
+    with pytest.raises(ValueError, match="web_serach"):
+        build_graph_from_spec(
+            spec, llm=MockLLM(), executor=None,
+            tool_schemas=[{"name": "web_search"}, {"name": "calculator"}],
+        )
+
+
 # ---------------------------------------------------------------------------
 # build_graph_from_spec — state schema
 # ---------------------------------------------------------------------------

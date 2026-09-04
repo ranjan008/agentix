@@ -118,11 +118,30 @@ def run(envelope: dict) -> None:
     # --- Build context ---
     system_prompt = build_system_prompt(agent_spec, skill_instructions)
 
-    # Tool schemas come from skills only — deduplicated by name.
+    # Tool schemas come from skills, then connectors — deduplicated by name.
     # spec.tools is purely a permission filter; it does not add extra schemas.
     _seen: set[str] = set()
     tool_schemas: list[dict] = []
     for schema in skill_tools:
+        if schema["name"] not in _seen:
+            _seen.add(schema["name"])
+            tool_schemas.append(schema)
+
+    # Load connectors (async: network calls to verify credentials) — must
+    # happen here, before EITHER dispatch path below, not only inside the
+    # agentic loop as before. Graph mode returns before ever reaching that
+    # loop, so a graph-mode agent had NO connector tool loaded, in ANY
+    # node, ever — a node declaring tools: [connector_name] silently ended
+    # up with tools=None (the allowlist filtered against zero connector
+    # schemas), so the LLM had no way to actually reach the connector and
+    # would narrate having performed the action instead. Found live: a
+    # graph node with tools: ["slack"] reported "Posted to
+    # #security-questionnaires" — the trace showed no tool_calls were ever
+    # written to state, and the graph itself reported "done". Loading here
+    # fixes both the graph and the agentic-loop path from one place.
+    import asyncio as _asyncio
+    _asyncio.run(connector_engine.load_for_agent(connector_refs, _TOOL_REGISTRY))
+    for schema in connector_engine.tool_schemas():
         if schema["name"] not in _seen:
             _seen.add(schema["name"])
             tool_schemas.append(schema)
@@ -168,8 +187,6 @@ def run(envelope: dict) -> None:
         hitl_store.delete(envelope["id"])
     else:
         messages = build_messages(envelope, agent_spec, store)
-
-    import asyncio as _asyncio
 
     # --- Graph mode: if spec defines a graph, run it instead of the agentic loop ---
     graph_spec = agent_spec["spec"].get("graph")
@@ -242,12 +259,8 @@ def run(envelope: dict) -> None:
     async def _agentic_loop():
         nonlocal final_text, iterations, messages, total_input_tokens, total_output_tokens, total_cost_usd, hitl_paused
 
-        # Load connectors (async: network calls to verify credentials)
-        await connector_engine.load_for_agent(connector_refs, _TOOL_REGISTRY)
-        for schema in connector_engine.tool_schemas():
-            if schema["name"] not in _seen:
-                _seen.add(schema["name"])
-                tool_schemas.append(schema)
+        # Connectors are now loaded once, above, before the graph-mode/
+        # agentic-loop branch — not here.
 
         try:
             while iterations < max_iterations:
