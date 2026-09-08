@@ -25,7 +25,13 @@ try:
 except Exception:
     pass
 
-from agentix.agent_runtime.context_builder import build_messages, build_system_prompt, persist_turn
+from agentix.agent_runtime.context_builder import (
+    build_messages,
+    build_system_prompt,
+    get_durable_facts,
+    maybe_extract_durable_memory,
+    persist_turn,
+)
 from agentix.agent_runtime.context_compactor import compact_messages
 from agentix.agent_runtime.loader import find_agent_spec, load_agent_spec
 from agentix.agent_runtime.output_handler import route_output
@@ -116,7 +122,16 @@ def run(envelope: dict) -> None:
     llm = build_router(cfg)
 
     # --- Build context ---
-    system_prompt = build_system_prompt(agent_spec, skill_instructions)
+    # scope computed here (not just at each persist_turn site below, which
+    # each derive the identical value locally) since the recall side needs
+    # it too, before either dispatch path runs.
+    scope = f"user:{envelope['caller']['identity_id']}"
+    durable_facts = (
+        get_durable_facts(store, agent_id, scope)
+        if agent_spec["spec"].get("memory", {}).get("durable")
+        else []
+    )
+    system_prompt = build_system_prompt(agent_spec, skill_instructions, durable_facts)
 
     # Tool schemas come from skills, then connectors — deduplicated by name.
     # spec.tools is purely a permission filter; it does not add extra schemas.
@@ -235,13 +250,15 @@ def run(envelope: dict) -> None:
             )
         except Exception as _ce:
             logger.warning("Cost ledger record failed: %s", _ce)
-        scope = f"user:{envelope['caller']['identity_id']}"
         persist_turn(
             agent_id, scope,
             build_messages(envelope, agent_spec, store),
             final_text, store,
             ttl_sec=agent_spec["spec"].get("memory", {}).get("ttl_sec", 3600),
         )
+        _asyncio.run(maybe_extract_durable_memory(
+            agent_spec, agent_id, scope, envelope["payload"]["text"], final_text, llm, store,
+        ))
         trace_store.finish_trace(trace_id, status="done", total_tokens=_graph_tokens, total_cost_usd=_graph_cost)
         route_output(envelope, final_text)
         store.audit("agent.completed", envelope["id"], agent_id, detail={"response_len": len(final_text)})
@@ -434,7 +451,6 @@ def run(envelope: dict) -> None:
             final_text = "I reached the maximum number of tool calls. Please try a more specific request."
 
     # --- Persist conversation turn ---
-    scope = f"user:{envelope['caller']['identity_id']}"
     persist_turn(
         agent_id,
         scope,
@@ -443,6 +459,9 @@ def run(envelope: dict) -> None:
         store,
         ttl_sec=agent_spec["spec"].get("memory", {}).get("ttl_sec", 3600),
     )
+    _asyncio.run(maybe_extract_durable_memory(
+        agent_spec, agent_id, scope, envelope["payload"]["text"], final_text, llm, store,
+    ))
 
     # --- Record cost and finish trace ---
     total_tokens = total_input_tokens + total_output_tokens
