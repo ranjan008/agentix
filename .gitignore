@@ -23,7 +23,6 @@ ui/.vite/
 *.tsbuildinfo
 
 # Editor
-.vscode/
 .idea/
 *.swp
 config.bat
