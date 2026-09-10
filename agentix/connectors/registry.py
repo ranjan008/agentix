@@ -48,7 +48,7 @@ def _load_builtins() -> None:
         from agentix.connectors.builtin import (  # noqa: F401
             github, slack, notion, jira, hubspot,
             stripe, sendgrid, twilio, airtable,
-            linear, discord, webhook,
+            linear, discord, webhook, http_api, openapi,
             # gmail/google_calendar/google_drive/google_sheets were real,
             # fully-implemented connector modules (each with its own
             # @register_connector(...) decorator) that this list simply
